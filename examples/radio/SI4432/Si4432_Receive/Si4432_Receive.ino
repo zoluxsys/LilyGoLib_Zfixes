@@ -32,6 +32,70 @@ ICACHE_RAM_ATTR void setFlag(void)
     receivedFlag = true;
 }
 
+void settingLoRaParams()
+{
+    // set carrier frequency to 433.5 MHz
+    if (radio.setFrequency(433.5) == RADIOLIB_ERR_INVALID_FREQUENCY) {
+        Serial.println(F("[Si4432] Selected frequency is invalid for this module!"));
+        while (true) {
+            delay(10);
+        }
+    }
+
+    // set bit rate to 100.0 kbps
+    int state = radio.setBitRate(100.0);
+    if (state == RADIOLIB_ERR_INVALID_BIT_RATE) {
+        Serial.println(F("[Si4432] Selected bit rate is invalid for this module!"));
+        while (true) {
+            delay(10);
+        }
+    } else if (state == RADIOLIB_ERR_INVALID_BIT_RATE_BW_RATIO) {
+        Serial.println(F("[Si4432] Selected bit rate to bandwidth ratio is invalid!"));
+        Serial.println(F("[Si4432] Increase receiver bandwidth to set this bit rate."));
+        while (true) {
+            delay(10);
+        }
+    }
+
+    // set receiver bandwidth to 284.8 kHz
+    state = radio.setRxBandwidth(284.8);
+    if (state == RADIOLIB_ERR_INVALID_RX_BANDWIDTH) {
+        Serial.println(F("[Si4432] Selected receiver bandwidth is invalid for this module!"));
+        while (true) {
+            delay(10);
+        }
+    }
+
+    // set frequency deviation to 10.0 kHz
+    if (radio.setFrequencyDeviation(10.0) == RADIOLIB_ERR_INVALID_FREQUENCY_DEVIATION) {
+        Serial.println(F("[Si4432] Selected frequency deviation is invalid for this module!"));
+        while (true) {
+            delay(10);
+        }
+    }
+
+    // set output power to 20 dBm
+    if (radio.setOutputPower(20) == RADIOLIB_ERR_INVALID_OUTPUT_POWER) {
+        Serial.println(F("[Si4432] Selected output power is invalid for this module!"));
+        while (true) {
+            delay(10);
+        }
+    }
+
+    // up to 4 bytes can be set as sync word
+    // set sync word to 0x01234567
+    uint8_t syncWord[] = {0x01, 0x23, 0x45, 0x67};
+    if (radio.setSyncWord(syncWord, 4) == RADIOLIB_ERR_INVALID_SYNC_WORD) {
+        Serial.println(F("[Si4432] Selected sync word is invalid for this module!"));
+        while (true) {
+            delay(10);
+        }
+    }
+
+    Serial.println(F("[Si4432] All settings changed successfully!"));
+}
+
+
 void setup()
 {
     Serial.begin(115200);
@@ -42,7 +106,7 @@ void setup()
 
     const char *example_title = "SI4432 Receive Example";
     label = lv_label_create(lv_scr_act());
-    lv_obj_set_style_text_font(label, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_14, 0);
     lv_label_set_text(label, example_title);
     lv_obj_center(label);
     lv_timer_handler();
@@ -51,6 +115,8 @@ void setup()
     // T-LoRa-Pager brightness level is 0 ~ 16
     // T-Watch-S3 , T-Watch-S3-Plus , T-Watch-Ultra brightness level is 0 ~ 255
     instance.setBrightness(DEVICE_MAX_BRIGHTNESS_LEVEL);
+
+    settingLoRaParams();
 
     // set the function that will be called
     // when new packet is received
@@ -123,4 +189,7 @@ void loop()
         // put module back to listen mode
         radio.startReceive();
     }
+
+    lv_timer_handler();
+
 }
