@@ -53,9 +53,13 @@ void setup()
     // T-Watch-S3 , T-Watch-S3-Plus , T-Watch-Ultra brightness level is 0 ~ 255
     instance.setBrightness(DEVICE_MAX_BRIGHTNESS_LEVEL);
 
-    // initialize nRF24 with default settings
+    // initialize nRF24
+    int16_t freq = (int16_t)2400;
+    int16_t dr = (int16_t)1000;
+    int8_t pwr = (int8_t)(0);
+    uint8_t addrWidth = (uint8_t)5U;
     Serial.print(F("[nRF24] Initializing ... "));
-    int state = nrf24.begin();
+    int state = nrf24.begin(freq, dr, pwr, addrWidth);
     if (state == RADIOLIB_ERR_NONE) {
         Serial.println(F("success!"));
     } else {
@@ -84,6 +88,10 @@ void setup()
             delay(10);
         }
     }
+
+    // Activate PA and turn on the transmission function
+    instance.io.pinMode(EXPANDS_GPIO_EN, OUTPUT);
+    instance.io.digitalWrite(EXPANDS_GPIO_EN, HIGH);
 
     // set the function that will be called
     // when packet transmission is finished
