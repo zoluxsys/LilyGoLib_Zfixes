@@ -14,13 +14,12 @@
 #define RADIO_TX_POWER_LIST     "-18dBm\n""-12dBm\n""-6dBm\n""0dBm"
 #define RADIO_INTERVAL_LIST     "1000ms\n""2000ms\n""3000ms"
 #define RADIO_MODE_LIST         "Disable\n""TX Mode\n""RX Mode"
-#define RADIO_SF_LIST           "5\n""6\n""7\n""8\n""9\n""10\n""11\n""12"
-#define RADIO_CR_LIST           "5\n""6\n""7\n""8"
+#define RADIO_CR_LIST           "1000kbp\n""2000kbp\n""250kbp"       //bit rate
 
 static const float radio_freq_args_list[] = {2400.0, 2424.0, 2450, 2500.0, 2525.0};
 static const float radio_power_args_list[] = {-18, -12, -6, 0};
 static const uint16_t radio_interval_args_list[] = {1000, 2000, 3000};
-static const uint8_t radio_dr_args_list[] = {5, 6, 7, 8};
+static const uint16_t radio_dr_args_list[] = {1000, 2000, 250};
 
 static lv_obj_t *menu = NULL;
 static lv_obj_t *radio_msg_label = NULL;
@@ -286,44 +285,43 @@ static void radio_timer_task(lv_timer_t *t)
 {
     static radio_tx_params_t tx_params;
     static radio_rx_params_t rx_params;
-    static uint32_t dummy_tx_payload = 0;
-    static uint32_t dummy_rx_payload = 0;
     char msg[128];
     bool rlst = false;
     static uint32_t last_sended = 0;
     int tick = lv_tick_get() / 1000;
+    static uint32_t tx_count = 0;
 
-    uint8_t tmp_buffer[5] = {0};
+    uint8_t tmp_buffer[30] = {0};
+    String str;
 
     switch (radio_run_mode) {
     case RADIO_DISABLE:
         break;
     case RADIO_TX:
         // Discard the first byte
-        memcpy(&tmp_buffer[1], &dummy_tx_payload, sizeof(dummy_tx_payload));
-        tx_params.data = tmp_buffer;
-        tx_params.length = sizeof(tmp_buffer);
-
+        str = " Hello#" + String(tx_count++);
+        tx_params.data = (uint8_t*)str.c_str();
+        tx_params.length = str.length();
         rlst = hw_set_nrf24_tx(tx_params);
         if (!rlst && ((lv_tick_get() - last_sended) > radio_params_copy.interval)) {
             printf("Clear ISR flag\n");
             hw_clear_nrf24_flag();
         }
         if (tx_params.state == 0) {
-            snprintf(msg, 128, "[%u]Tx PASS :%u", tick, dummy_tx_payload);
+            snprintf(msg, 128, "[%u]Tx PASS :%s", tick, str.c_str());
             ui_set_msg_label(msg);
-            dummy_tx_payload++;
             last_sended = lv_tick_get();
         }
         break;
     case RADIO_RX:
-        dummy_tx_payload = 0;
         rx_params.data = tmp_buffer;
         rx_params.length = sizeof(tmp_buffer);
         hw_get_nrf24_rx(rx_params);
         if (rx_params.state == 0) {
-            memcpy(&dummy_rx_payload, &tmp_buffer[1], sizeof(dummy_rx_payload));
-            snprintf(msg, 128, "[%u]Rx PASS :%u", tick, dummy_rx_payload);
+            String str = String((const char *)rx_params.data);
+            // Discard the last byte
+            str = str.substring(0,str.length() - 1);
+            snprintf(msg, 128, "[%u]Rx PASS :%s", tick, str.c_str());
             ui_set_msg_label(msg);
         }
         break;
@@ -374,7 +372,7 @@ void ui_nrf24_enter(lv_obj_t *parent)
     ui_create_option(main_page, "Frequency:", NULL, create_frequency_dropdown, NULL);
     ui_create_option(main_page, "TX Power:", NULL, create_tx_power_dropdown, NULL);
     ui_create_option(main_page, "Tx Interval:", NULL, create_tx_interval_dropdown, NULL);
-    ui_create_option(main_page, "Data rate:", NULL, create_dr_dropdown, NULL);
+    ui_create_option(main_page, "Bit rate:", NULL, create_dr_dropdown, NULL);
 
     timer =  lv_timer_create(radio_timer_task, 1000, NULL);
     lv_timer_pause(timer);

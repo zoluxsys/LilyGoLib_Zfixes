@@ -42,6 +42,9 @@ void hw_nrf24_begin()
         return;
     }
     nrf24.setPacketSentAction(hw_nrf24_isr);
+
+    // Set PA control IO to output function
+    instance.io.pinMode(EXPANDS_GPIO_EN, OUTPUT);
 }
 #endif
 
@@ -56,7 +59,7 @@ bool hw_has_nrf24()
 void hw_get_nrf24_params(radio_params_t &params)
 {
     params.freq = 2400.0;
-    params.cr = 1000;
+    params.cr = 1000;   //bit rate
     params.isRunning = false;
     params.mode = RADIO_DISABLE;
     params.power = 0;
@@ -75,7 +78,7 @@ int16_t hw_set_nrf24_params(radio_params_t &params)
     if (state == RADIOLIB_ERR_INVALID_FREQUENCY) {
         Serial.println(F("Selected frequency is invalid for this module!"));
     }
-    // set coding rate
+    // Sets bit rate
     state = nrf24.setBitRate(params.cr);
     if (state == RADIOLIB_ERR_INVALID_CODING_RATE) {
         Serial.println(F("Selected coding rate is invalid for this module!"));
@@ -89,10 +92,12 @@ int16_t hw_set_nrf24_params(radio_params_t &params)
     switch (params.mode) {
     case RADIO_DISABLE:
         state =  nrf24.standby();
-        instance.powerControl(POWER_EXT_GPIO, false);
+        // Receiving function
+        instance.io.digitalWrite(EXPANDS_GPIO_EN, LOW);
         break;
     case RADIO_TX:
-        instance.powerControl(POWER_EXT_GPIO, true);
+        // Transmit function
+        instance.io.digitalWrite(EXPANDS_GPIO_EN, HIGH);
         state = nrf24.setTransmitPipe(addr);
         if (state == RADIOLIB_ERR_NONE) {
             Serial.println(F("success!"));
@@ -103,7 +108,8 @@ int16_t hw_set_nrf24_params(radio_params_t &params)
         }
         break;
     case RADIO_RX:
-        instance.powerControl(POWER_EXT_GPIO, true);
+        // Receiving function
+        instance.io.digitalWrite(EXPANDS_GPIO_EN, LOW);
         state = nrf24.setReceivePipe(0, addr);
         if (state == RADIOLIB_ERR_NONE) {
             Serial.println(F("success!"));
@@ -184,12 +190,13 @@ void hw_get_nrf24_rx(radio_rx_params_t &params)
 
     if (!params.data) {
         params.state = -1;
-        printf("rx data buffer is empty");
+        Serial.printf("rx data buffer is empty\n");
         return;
     }
 
     instance.lockSPI();
-    params.length = nrf24.getPacketLength();
+    size_t  length = nrf24.getPacketLength();
+    params.length = length > params.length ? params.length : length;
     params.state = nrf24.readData(params.data, params.length);
     // Start next packet recv
     nrf24.startReceive();
