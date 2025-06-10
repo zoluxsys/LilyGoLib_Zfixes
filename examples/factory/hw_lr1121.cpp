@@ -290,7 +290,7 @@ float radio_get_freq_from_index(uint8_t index)
 
 const char *radio_get_bandwidth_list()
 {
-    return "62.5\n""\n""125KHz\n""250KHz\n""500KHz";
+    return "62.5\n""125KHz\n""250KHz\n""500KHz";
 }
 
 float radio_get_bandwidth_from_index(uint8_t index)
