@@ -108,14 +108,6 @@ void settingLoRaParams()
             delay(10);
         }
     }
-
-    // Set TCXO voltage to 3.0V
-    if (radio.setTCXO(3.0) == RADIOLIB_ERR_INVALID_TCXO_VOLTAGE) {
-        Serial.println(F("Selected TCXO voltage is invalid for this module!"));
-        while (true) {
-            delay(10);
-        }
-    }
 }
 
 void setup()
@@ -126,13 +118,13 @@ void setup()
 
     beginLvglHelper(instance);
 
-    const char *example_title = "LR1121 Receive Example";
+    const char *example_title = "LR1121 Transmit Example";
     label = lv_label_create(lv_scr_act());
     lv_obj_set_style_text_font(label, &lv_font_montserrat_20, 0);
     lv_label_set_text(label, example_title);
     lv_obj_center(label);
     lv_timer_handler();
-    
+
     // Set brightness to MAX
     // T-LoRa-Pager brightness level is 0 ~ 16
     // T-Watch-S3 , T-Watch-S3-Plus , T-Watch-Ultra brightness level is 0 ~ 255
@@ -185,7 +177,7 @@ void loop()
             Serial.print(F("failed, code "));
             Serial.println(transmissionState);
 
-            lv_label_set_text_fmt(label, "Transmission faile:%d", transmissionState);
+            lv_label_set_text_fmt(label, "Transmission failed:%d", transmissionState);
 
         }
 

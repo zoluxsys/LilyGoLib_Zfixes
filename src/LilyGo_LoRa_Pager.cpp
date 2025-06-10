@@ -324,6 +324,32 @@ uint32_t LilyGoLoRaPager::begin(uint32_t disable_hw_init)
         int state = radio.begin();
         if (state == RADIOLIB_ERR_NONE) {
             devices_probe |= HW_RADIO_ONLINE;
+
+#if defined(ARDUINO_LILYGO_LORA_LR1121)
+            // Set RF switch configuration
+            static const uint32_t rfswitch_dio_pins[] = {
+                RADIOLIB_LR11X0_DIO5, RADIOLIB_LR11X0_DIO6,
+                RADIOLIB_NC, RADIOLIB_NC, RADIOLIB_NC
+            };
+            static const Module::RfSwitchMode_t rfswitch_table[] = {
+                // mode                  DIO5  DIO6
+                { LR11x0::MODE_STBY,   { LOW,  LOW  } },
+                { LR11x0::MODE_RX,     { LOW, HIGH  } },
+                { LR11x0::MODE_TX,     { HIGH,  LOW } },
+                { LR11x0::MODE_TX_HP,  { HIGH,  LOW } },
+                { LR11x0::MODE_TX_HF,  { LOW,  LOW  } },
+                { LR11x0::MODE_GNSS,   { LOW,  LOW  } },
+                { LR11x0::MODE_WIFI,   { LOW,  LOW  } },
+                END_OF_MODE_TABLE,
+            };
+
+            radio.setRfSwitchTable(rfswitch_dio_pins, rfswitch_table);
+
+            // Set TCXO voltage to 3.0V
+            radio.setTCXO(3.0);
+
+#endif /*ARDUINO_LILYGO_LORA_LR1121*/
+
         } else {
             log_e("Radio init failed, code :%d", state);
         }

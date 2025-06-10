@@ -110,13 +110,6 @@ void settingLoRaParams()
         }
     }
 
-    // Set TCXO voltage to 3.0V
-    if (radio.setTCXO(3.0) == RADIOLIB_ERR_INVALID_TCXO_VOLTAGE) {
-        Serial.println(F("Selected TCXO voltage is invalid for this module!"));
-        while (true) {
-            delay(10);
-        }
-    }
 }
 
 void setup()
@@ -133,7 +126,7 @@ void setup()
     lv_label_set_text(label, example_title);
     lv_obj_center(label);
     lv_timer_handler();
-    
+
     // Set brightness to MAX
     // T-LoRa-Pager brightness level is 0 ~ 16
     // T-Watch-S3 , T-Watch-S3-Plus , T-Watch-Ultra brightness level is 0 ~ 255
