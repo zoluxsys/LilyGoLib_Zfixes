@@ -1386,7 +1386,8 @@ void hw_register_imu_process()
 #if defined(USING_BHI260_SENSOR)
     float sample_rate = 100.0;      /* Read out data measured at 100Hz */
     uint32_t report_latency_ms = 0; /* Report immediately */
-    instance.sensor.setRemapAxes(SensorBHI260AP::BOTTOM_LAYER_TOP_LEFT_CORNER);
+    // LilyGoLib has already processed it
+    // instance.sensor.setRemapAxes(SensorBHI260AP::BOTTOM_LAYER_TOP_LEFT_CORNER);
     // Enable Quaternion function
     instance.sensor.configure(SensorBHI260AP::GAME_ROTATION_VECTOR, sample_rate, report_latency_ms);
     // Register event callback function

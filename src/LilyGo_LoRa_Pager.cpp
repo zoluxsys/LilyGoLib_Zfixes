@@ -1053,7 +1053,7 @@ bool LilyGoLoRaPager::initSensor()
     } else {
         log_d("Initializing BHI260AP succeeded");
         devices_probe |= HW_SENSOR_ONLINE;
-
+        sensor.setRemapAxes(SensorBHI260AP::BOTTOM_LAYER_TOP_LEFT_CORNER);
         pinMode(SENSOR_INT, INPUT);
         attachInterrupt(SENSOR_INT, []() {
             setGroupBitsFromISR(_event, HW_IRQ_SENSOR);
