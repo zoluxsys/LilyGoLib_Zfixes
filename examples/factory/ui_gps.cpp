@@ -25,6 +25,7 @@ static gps_label_t label_gps;
 static lv_obj_t *menu = NULL;
 static lv_timer_t *timer = NULL;
 static lv_obj_t *quit_btn = NULL;
+static bool nmea_to_serial = false;
 
 static void back_event_handler(lv_event_t *e)
 {
@@ -40,6 +41,8 @@ static void back_event_handler(lv_event_t *e)
             lv_obj_del_async(quit_btn);
             quit_btn = NULL;
         }
+
+        nmea_to_serial = false;
 
         hw_gps_detach_pps();
 
@@ -120,12 +123,34 @@ void ui_gps_enter(lv_obj_t *parent)
     lv_label_set_text_fmt(label, "%u", param.rx_size);
     label_gps.rx_size = label;
 
+    btn = lv_list_add_btn(list1, LV_SYMBOL_GPS, "NMEA to Serial");
+    label = lv_label_create(btn);
+    lv_label_set_text(label, "Disable");
+
+    lv_obj_add_event_cb(btn, [](lv_event_t * e) {
+        lv_obj_t *label =  (lv_obj_t *)lv_event_get_user_data(e);
+        nmea_to_serial = !nmea_to_serial;
+        lv_label_set_text_fmt(label, "%s", nmea_to_serial ? "Enabled"  : "Disable");
+        if (nmea_to_serial) {
+            lv_timer_set_period(timer, 20);
+        } else {
+            lv_timer_set_period(timer, 1000);
+        }
+    }, LV_EVENT_CLICKED, label);
+
     lv_menu_set_page(menu, main_page);
 
     timer = lv_timer_create([](lv_timer_t *t) {
         char buffer[128];
         static gps_params_t param;
+        param.enable_debug = nmea_to_serial;
+
         bool rlst = hw_get_gps_info(param);
+
+        if (param.enable_debug) {
+            return;
+        }
+
 #ifdef GPS_PPS
         param.pps ? lv_led_on(label_gps.pps) :  lv_led_off(label_gps.pps);
 #endif
@@ -149,7 +174,7 @@ void ui_gps_enter(lv_obj_t *parent)
         lv_label_set_text(label_gps.datetime, buffer);
         lv_label_set_text_fmt(label_gps.speed, "%.02f Km/h", param.speed);
         lv_label_set_text_fmt(label_gps.rx_size, "%u", param.rx_size);
-    }, 80, label);
+    }, 1000, label);
 
 #ifdef USING_TOUCHPAD
     quit_btn  = create_floating_button([](lv_event_t*e) {

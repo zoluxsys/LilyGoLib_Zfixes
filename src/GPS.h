@@ -27,9 +27,9 @@ public:
             int c = _stream->read();
             if (debug) {
                 Serial.write(c);
+            } else {
+                encode(c);
             }
-
-            encode(c);
         }
         if (debug) {
             while (Serial.available()) {

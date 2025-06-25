@@ -786,7 +786,9 @@ bool hw_get_gps_info(gps_params_t &param)
     static uint32_t interval = 0;
     param.pps = pps_trigger;
 
-    if (millis() < interval) {
+    bool debug = param.enable_debug;
+
+    if (millis() < interval && debug == false) {
         return false;
     }
     interval = millis() + 1000;
@@ -795,7 +797,11 @@ bool hw_get_gps_info(gps_params_t &param)
 
 
     param.model = instance.gps.getModel().c_str();
-    param.rx_size = instance.gps.loop();
+    param.rx_size = instance.gps.loop(debug);
+
+    if (debug) {
+        return true;
+    }
 
     bool location = instance.gps.location.isValid();
     bool datetime = (instance.gps.date.year() > 2000);

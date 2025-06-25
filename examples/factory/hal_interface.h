@@ -106,6 +106,7 @@ typedef struct  {
     uint32_t rx_size;
     uint16_t satellite;
     bool pps;
+    bool enable_debug;
 } gps_params_t;
 
 /**
