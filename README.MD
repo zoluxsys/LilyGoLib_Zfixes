@@ -17,3 +17,7 @@
 - 🔧 **[T-Watch-Ultra Hardware Information](./docs/hardware/lilygo-t-watch-ultra.md)**
 - 🔧 **[T-Watch-S3 Hardware Information](./docs/hardware/lilygo-t-watch-s3.md)**
 - 🔧 **[T-Watch-S3-Plus Hardware Information](./docs/hardware/lilygo-t-watch-s3-plus.md)**
+
+### `3` GPS AssistNow Usage Guide
+
+- 🔧 **[GPS AssistNow Usage Guide](./docs/assistNow/assistNow.md)**
