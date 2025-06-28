@@ -44,7 +44,7 @@ void setup()
     beginLvglHelper(instance);
 
     lv_obj_t *label1 = lv_label_create(lv_screen_active());
-    lv_label_set_text(label1, "SimapleTone");
+    lv_label_set_text(label1, "SimpleTone");
     lv_obj_center(label1);
 
     // Turn on the audio power, the default is off
