@@ -283,6 +283,7 @@ static void _msg_ta_cb(lv_event_t *e)
 
 static void radio_timer_task(lv_timer_t *t)
 {
+#ifdef ARDUINO
     static radio_tx_params_t tx_params;
     static radio_rx_params_t rx_params;
     char msg[128];
@@ -320,7 +321,7 @@ static void radio_timer_task(lv_timer_t *t)
         if (rx_params.state == 0) {
             String str = String((const char *)rx_params.data);
             // Discard the last byte
-            str = str.substring(0,str.length() - 1);
+            str = str.substring(0, str.length() - 1);
             snprintf(msg, 128, "[%u]Rx PASS :%s", tick, str.c_str());
             ui_set_msg_label(msg);
         }
@@ -328,6 +329,7 @@ static void radio_timer_task(lv_timer_t *t)
     default:
         break;
     }
+#endif
 }
 
 void ui_nrf24_enter(lv_obj_t *parent)

@@ -800,7 +800,7 @@ bool hw_get_gps_info(gps_params_t &param)
     param.rx_size = instance.gps.loop(debug);
 
     if (debug) {
-        return true;
+        return false;
     }
 
     bool location = instance.gps.location.isValid();
