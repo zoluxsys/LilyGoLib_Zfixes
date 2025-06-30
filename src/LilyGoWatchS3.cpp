@@ -724,8 +724,11 @@ void LilyGoWatch2022::lightSleep(WakeupSource_t wakeup_src)
     if (wakeup_pin == 0) {
         return;
     }
-
+    
+#if !defined(ARDUINO_LILYGO_LORA_SX1280)
+    // SX1280 died here, the reason is not analyzed yet, waiting to be processed
     radio.sleep();
+#endif
 
     powerControl(POWER_DISPLAY_BACKLIGHT, false);
     powerControl(POWER_HAPTIC_DRIVER, false);
