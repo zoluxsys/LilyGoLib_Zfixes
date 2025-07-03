@@ -433,6 +433,8 @@ bool LilyGoLoRaPager::initPMU()
     if (!res) {
         return false;
     }
+    // Set the charging target voltage full voltage to 4288mV
+    ppm.setChargeTargetVoltage(4288);
     return res;
 }
 
