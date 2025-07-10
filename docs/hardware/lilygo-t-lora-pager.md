@@ -64,6 +64,25 @@
 
 ```
 
+### nRF24L01 PA Shield interface
+
+```bash
+|---------------------------------------------------|
+|     | SCL | SDA | MISO  | SCK  | TX | GND  |      |
+|     | 5V  | CE  | GPIO9 | MOSI | RX | 3.3V |      |
+|---------------------------------------------------|
+
+* CE is XL9555 GPIO9 , nRF24L01 Shield Tx/Rx Control, LOW:Rx HIGH:Tx
+* TX is ESP32-S3 GPIO43, nRF24L01 Shield CE Pin
+* RX is ESP32-S3 GPIO44, nRF24L01 Shield CS Pin
+* MISO is ESP32-S3 GPIO33, nRF24L01 Shield MISO Pin
+* MOSI is ESP32-S3 GPIO34, nRF24L01 Shield MOSI Pin
+* SCK is ESP32-S3 GPIO35, nRF24L01 Shield SCK Pin
+* SDA is ESP32-S3 GPIO3
+* SCL is ESP32-S3 GPIO2
+
+```
+
 ### ✨ Hardware-Features
 
 | Features                         | Params                           |
