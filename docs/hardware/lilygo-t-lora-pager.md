@@ -261,7 +261,9 @@
 | 🔋Battery capacity          | 1500mA (\(5.55Wh\))        |
 | 🔋Charge Temperature  Range | 0~60°                      |
 
-[Note1]: The recommended maximum charging current setting is 1A
+> \[!IMPORTANT]
+> ⚠️ Recommended to use a charging current lower than 750mA.
+> The charging current should not be greater than half of the battery capacity
 
 ### ⚡ Power consumption reference
 

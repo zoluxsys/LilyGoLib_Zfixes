@@ -160,7 +160,9 @@
 | 🔋Battery capacity    | 1500mA (\(5.55Wh\))         |
 
 > \[!IMPORTANT]
-> ⚠️ Recommended to use a charging current lower than 500mA. Excessive charging current will cause the PMU temperature to be too high.
+> ⚠️ It is recommended to use a charging current below 130mA. Excessive charging current can damage the battery.
+> If not in use for an extended period, turn the battery switch to OFF.
+>
 
 ### ⚡ Power consumption reference
 

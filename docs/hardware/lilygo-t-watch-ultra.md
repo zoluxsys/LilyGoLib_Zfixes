@@ -185,6 +185,7 @@
 
 > \[!IMPORTANT]
 > ⚠️ Recommended to use a charging current lower than 500mA. Excessive charging current will cause the PMU temperature to be too high.
+> The charging current should not be greater than half of the battery capacity
 
 ### ⚡ Power consumption reference
 
