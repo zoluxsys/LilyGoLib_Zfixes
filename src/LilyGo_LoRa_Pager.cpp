@@ -435,6 +435,10 @@ bool LilyGoLoRaPager::initPMU()
     }
     // Set the charging target voltage full voltage to 4288mV
     ppm.setChargeTargetVoltage(4288);
+
+    // The charging current should not be greater than half of the battery capacity.
+    PPM.setChargerConstantCurr(704);
+
     return res;
 }
 

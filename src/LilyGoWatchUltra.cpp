@@ -468,7 +468,11 @@ bool LilyGoUltra::initPMU()
     // Enable the battery NTC temperature detection function
     pmu.enableTSPinMeasure();
 
-    setChargeCurrent(300);
+    // T-Watch-S3 is designed for high-voltage(4.2V) batteries by default.
+    pmu.setChargeTargetVoltage(XPOWERS_AXP2101_CHG_VOL_4V2);
+
+    // The charging current should not be greater than half of the battery capacity.
+    setChargeCurrent(512);
 
     return res;
 }

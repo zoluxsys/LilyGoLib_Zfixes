@@ -552,11 +552,11 @@ bool LilyGoWatch2022::initPMU()
 
     // Set the precharge charging current
     pmu.setPrechargeCurr(XPOWERS_AXP2101_PRECHARGE_50MA);
-    // Set constant current charge current limit
-    pmu.setChargerConstantCurr(XPOWERS_AXP2101_CHG_CUR_300MA);
+    // It is recommended to charge at less than 130mA
+    pmu.setChargerConstantCurr(XPOWERS_AXP2101_CHG_CUR_125MA);
     // Set stop charging termination current
     pmu.setChargerTerminationCurr(XPOWERS_AXP2101_CHG_ITERM_25MA);
-    // Set charge cut-off voltage
+    // T-Watch-S3 uses a high-voltage(4.35V) battery by default.
     pmu.setChargeTargetVoltage(XPOWERS_AXP2101_CHG_VOL_4V35);
 
     // Register PMU interrupt management
@@ -724,7 +724,7 @@ void LilyGoWatch2022::lightSleep(WakeupSource_t wakeup_src)
     if (wakeup_pin == 0) {
         return;
     }
-    
+
 #if !defined(ARDUINO_LILYGO_LORA_SX1280)
     // SX1280 died here, the reason is not analyzed yet, waiting to be processed
     radio.sleep();
