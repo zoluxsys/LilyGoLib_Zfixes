@@ -437,7 +437,7 @@ bool LilyGoLoRaPager::initPMU()
     ppm.setChargeTargetVoltage(4288);
 
     // The charging current should not be greater than half of the battery capacity.
-    PPM.setChargerConstantCurr(704);
+    ppm.setChargerConstantCurr(704);
 
     return res;
 }
