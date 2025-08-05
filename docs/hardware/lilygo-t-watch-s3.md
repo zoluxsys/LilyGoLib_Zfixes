@@ -170,5 +170,4 @@
 
 ### Resource
 
-* [Schematic]()
-
+* [Motherboard-schematic](../../schematic/T_WATCH-S3%2025-03-24.pdf)

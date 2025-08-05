@@ -281,5 +281,4 @@
 * [Radio-CC1101(Sub 1G (G)MSK, 2(G)FSK, 4(G)FSK, ASK, OOK)](https://www.ti.com/product/CC1101)
 * [Radio-LR1121(Sub 1G + 2.4G LoRa)](https://www.semtech.com/products/wireless-rf/lora-connect/lr1121)
 * [Radio-SI4432(Sub 1G ISM)](https://www.silabs.com/wireless/proprietary/ezradiopro-sub-ghz-ics/device.si4432?tab=specs)
-* [Schematic]()
-
+* [Schematic](../../schematic/T-Watch%20Ultra%20V1.0%20SCH%2025-07-24.pdf)

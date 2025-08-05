@@ -202,4 +202,4 @@
 
 ### Resource
 
-* [Schematic]()
+* [Schematic](../../schematic/T-Watch%20Ultra%20V1.0%20SCH%2025-07-24.pdf)
