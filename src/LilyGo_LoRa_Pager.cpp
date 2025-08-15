@@ -387,7 +387,7 @@ uint32_t LilyGoLoRaPager::begin(uint32_t disable_hw_init)
 
 #ifdef USING_AUDIO_CODEC
     codec.setPins(I2S_MCLK, I2S_SCK, I2S_WS, I2S_SDOUT, I2S_SDIN);
-    if (codec.begin(Wire, 0x18)) {
+    if (codec.begin(Wire, 0x18, CODEC_TYPE_ES8311)) {
         devices_probe |= HW_CODEC_ONLINE;
         log_i("Codec init succeeded");
     } else {

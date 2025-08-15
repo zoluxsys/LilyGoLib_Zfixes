@@ -79,7 +79,7 @@ void EspCodec::setPins(int mclk, int sck, int ws, int data_out, int data_in)
     _data_in_num = data_in;
 }
 
-bool EspCodec::begin(TwoWire&wire, uint8_t address)
+bool EspCodec::begin(TwoWire&wire, uint8_t address, EspCodecType type)
 {
     wire.beginTransmission(address);
     if (wire.endTransmission() != 0) {
@@ -115,49 +115,65 @@ bool EspCodec::begin(TwoWire&wire, uint8_t address)
         .codec_dac_voltage = 3.3,
     };
 
-    es8311_codec_cfg_t es8311_cfg = {
-        .ctrl_if = i2c_ctrl_if,
-        .gpio_if = gpio_if,
-        .codec_mode = ESP_CODEC_DEV_WORK_MODE_BOTH,
-        .pa_pin = (int16_t)_pa_num,
-        .pa_reverted = false,
-        .master_mode = false,
-        .use_mclk = true,
-        .digital_mic = false,
-        .invert_mclk = false,
-        .invert_sclk = false,
-        .hw_gain = gain,
-    };
-    codec_if = es8311_codec_new(&es8311_cfg);
-
-#if 0
-    // todo
-    EspCodecType type;
     switch (type) {
     case CODEC_TYPE_ES8311:
-        break;
-    case CODEC_TYPE_ES7210:
-        break;
-    case CODEC_TYPE_ES7243:
-        break;
-    case CODEC_TYPE_ES7243E:
-        break;
-    case CODEC_TYPE_ES8156:
-        break;
-    case CODEC_TYPE_AW88298:
-        break;
-    case CODEC_TYPE_ES8374:
-        break;
-    case CODEC_TYPE_ES8388:
-        break;
-    case CODEC_TYPE_TAS5805M:
-        break;
-    case CODEC_TYPE_ZL38063:
-        break;
-    default:
-        break;
+#ifdef CONFIG_CODEC_ES8311_SUPPORT
+    {
+        es8311_codec_cfg_t es8311_cfg = {
+            .ctrl_if = i2c_ctrl_if,
+            .gpio_if = gpio_if,
+            .codec_mode = ESP_CODEC_DEV_WORK_MODE_BOTH,
+            .pa_pin = (int16_t)_pa_num,
+            .pa_reverted = false,
+            .master_mode = false,
+            .use_mclk = true,
+            .digital_mic = false,
+            .invert_mclk = false,
+            .invert_sclk = false,
+            .hw_gain = gain,
+        };
+        codec_if = es8311_codec_new(&es8311_cfg);
     }
 #endif
+    break;
+    case CODEC_TYPE_ES7210:
+    case CODEC_TYPE_ES7243:
+    case CODEC_TYPE_ES7243E:
+    case CODEC_TYPE_ES8156:
+    case CODEC_TYPE_AW88298:
+    case CODEC_TYPE_ES8374:
+    case CODEC_TYPE_ZL38063:
+    case CODEC_TYPE_TAS5805M:
+        log_e("Not implemented");
+        break;
+    case CODEC_TYPE_ES8388:
+#ifdef CONFIG_CODEC_ES8388_SUPPORT
+    {
+        es8388_codec_cfg_t es8388_cfg = {
+            .ctrl_if = i2c_ctrl_if,
+            .gpio_if = gpio_if,
+            .codec_mode = ESP_CODEC_DEV_WORK_MODE_BOTH,
+            .master_mode = false,
+            .pa_pin = (int16_t)_pa_num,
+            .pa_reverted = false,
+            .hw_gain = gain,
+        };
+        int retry = 3;
+        do {
+            codec_if = es8388_codec_new(&es8388_cfg);
+            if (codec_if) {
+                break;
+            }
+            delay(1000);
+        } while (retry--);
+    }
+#endif
+    break;
+    default:
+        log_e("Error chip type");
+        break;
+    }
+
     if (codec_if == NULL) {
         log_e("new codec failed!");
         audio_codec_delete_gpio_if(gpio_if);
@@ -333,12 +349,12 @@ esp_err_t EspCodec::_i2s_init()
 
 const int WAVE_HEADER_SIZE = PCM_WAV_HEADER_SIZE;
 
-void EspCodec::playWAV(uint8_t *data, size_t len)
+bool EspCodec::playWAV(uint8_t *data, size_t len)
 {
     pcm_wav_header_t *header = (pcm_wav_header_t *)data;
     if (header->fmt_chunk.audio_format != 1) {
         log_e("Audio format is not PCM!");
-        return;
+        return false;
     }
     wav_data_chunk_t *data_chunk = &header->data_chunk;
     size_t data_offset = 0;
@@ -358,39 +374,45 @@ void EspCodec::playWAV(uint8_t *data, size_t len)
     int ret = open(header->fmt_chunk.bits_per_sample, header->fmt_chunk.num_of_channels, header->fmt_chunk.sample_rate);
     if (ret < 0) {
         log_e("Open audio device failed");
-        return;
+        return false;
     }
     write(data + WAVE_HEADER_SIZE + data_offset, data_chunk->subchunk_size);
     close();
+    return true;
 }
 
 
-uint8_t *EspCodec::recordWAV(size_t rec_seconds, size_t *out_size, uint32_t sample_rate, uint16_t sample_width)
+bool EspCodec::recordWAV(size_t rec_seconds, uint8_t**output, size_t *out_size, uint16_t sample_rate, uint8_t num_channels)
 {
-    uint16_t num_channels = 1;
+    uint16_t sample_width = 16;
     size_t rec_size = rec_seconds * ((sample_rate * (sample_width / 8)) * num_channels);
     const pcm_wav_header_t wav_header = PCM_WAV_HEADER_DEFAULT(rec_size, sample_width, sample_rate, num_channels);
     *out_size = 0;
 
     log_d("Record WAV: rate:%lu, bits:%u, channels:%u, size:%lu", sample_rate, sample_width, num_channels, rec_size);
 
-    uint8_t *wav_buf = (uint8_t *)ps_malloc(rec_size + WAVE_HEADER_SIZE);
+    uint8_t *wav_buf = (uint8_t *)malloc(rec_size + PCM_WAV_HEADER_SIZE);
     if (wav_buf == NULL) {
-        log_e("Failed to allocate WAV buffer with size %u", rec_size + WAVE_HEADER_SIZE);
-        return NULL;
+        log_e("Failed to allocate WAV buffer with size %u", rec_size + PCM_WAV_HEADER_SIZE);
+        return false;
     }
-    memcpy(wav_buf, &wav_header, WAVE_HEADER_SIZE);
-    if (open(sample_width, num_channels, sample_rate) == -1) {
-        log_e("Open audio device failed");
+    memcpy(wav_buf, &wav_header, PCM_WAV_HEADER_SIZE);
+
+    int rlst = this->open(sample_width, num_channels, sample_rate);
+    if (rlst != ESP_CODEC_DEV_OK) {
         free(wav_buf);
-        return NULL;
+        return false;
     }
-    if (read((uint8_t *)(wav_buf + WAVE_HEADER_SIZE), rec_size) == -1) {
-        log_e("Recorded failed");
-    } else {
-        *out_size = rec_size + WAVE_HEADER_SIZE;
-        return wav_buf;
+    rlst = this->read(wav_buf + PCM_WAV_HEADER_SIZE, rec_size);
+    if (rlst != ESP_CODEC_DEV_OK ) {
+        log_e("Recorded failed,error code : %d", rlst);
+        free(wav_buf);
+        this->close();
+        return false;
     }
-    free(wav_buf);
-    return NULL;
+    *out_size = rec_size + PCM_WAV_HEADER_SIZE;
+    this->close();
+    *output = wav_buf;
+    return true;
 }
+
