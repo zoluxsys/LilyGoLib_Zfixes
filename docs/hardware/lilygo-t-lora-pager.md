@@ -48,6 +48,8 @@
 ### Extension interface
 
 ```bash
+
+>----------Place the screen facing up---------------<
 |---------------------------------------------------|
 |     | SCL | SDA | MISO  | SCK  | TX | GND  |      |
 |     | 5V  | CE  | GPIO9 | MOSI | RX | 3.3V |      |
@@ -67,6 +69,7 @@
 ### nRF24L01 PA Shield interface
 
 ```bash
+>----------Place the screen facing up---------------<
 |---------------------------------------------------|
 |     | SCL | SDA | MISO  | SCK  | TX | GND  |      |
 |     | 5V  | CE  | GPIO9 | MOSI | RX | 3.3V |      |
