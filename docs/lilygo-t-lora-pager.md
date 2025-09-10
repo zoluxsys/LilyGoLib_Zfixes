@@ -37,7 +37,7 @@ Please confirm that it is running normally before trying to update to the latest
    | ------------------------------------ | --------------------------------- |
    | Board                                | **LilyGo-T-LoRa-Pager**           |
    | Port                                 | Your port                         |
-   | USB CDC On Boot                      | Enabled                            |
+   | USB CDC On Boot                      | Enabled                           |
    | CPU Frequency                        | 240MHZ(WiFi)                      |
    | Core Debug Level                     | None                              |
    | USB DFU On Boot                      | Disable                           |
@@ -67,6 +67,16 @@ Please confirm that it is running normally before trying to update to the latest
 > * If there is no message output from the serial port, please check whether USB CDC ON Boot is set to Enabled.
 > * Board Revision changes according to the actual RF module model. The current default version is SX1262
 > * This library depends on the latest [arduino-esp32](https://github.com/espressif/arduino-esp32/releases/tag/3.3.0-alpha1) version. If it is lower than **V3.3.0-alpha1**, an error will be reported.
+
+### Keyboard function settings and input methods
+
+|                               |                               |
+| ----------------------------- | ----------------------------- |
+| Number and Symbol Mode        | Space + Key                   |
+| Character capitalization mode | CAP + Key                     |
+| Backlight control             | Left orange button + button B |
+
+* In the factory firmware, the backlight can only be controlled when the input is allowed.
 
 ### T-LoRa-Pager Enter Download Mode
 
