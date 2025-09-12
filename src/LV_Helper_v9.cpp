@@ -369,3 +369,6 @@ lv_indev_t *lv_get_encoder_indev()
 {
     return indev_encoder;
 }
+
+#endif
+
