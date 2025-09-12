@@ -302,27 +302,33 @@ bool LilyGoWatch2022::initSensor()
 
 void LilyGoWatch2022::checkSensorStatus()
 {
+    static SensorEventType_t event;
     uint16_t status = sensor.readIrqStatus();
     if (sensor.isPedometer()) {
         uint32_t stepCounter = sensor.getPedometerCounter();
         log_d("Step count interrupt,step Counter:%u\n", stepCounter);
-        sendEvent(SENSOR_STEPS_UPDATED);
+        event = SENSOR_STEPS_UPDATED;
+        sendEvent(SENSOR_EVENT, &event);
     }
     if (sensor.isActivity()) {
         log_d("Activity interrupt");
-        sendEvent(SENSOR_ACTIVITY_DETECTED);
+        event = SENSOR_ACTIVITY_DETECTED;
+        sendEvent(SENSOR_EVENT, &event);
     }
     if (sensor.isTilt()) {
         log_d("Tilt interrupt");
-        sendEvent(SENSOR_TILT_DETECTED);
+        event = SENSOR_TILT_DETECTED;
+        sendEvent(SENSOR_EVENT, &event);
     }
     if (sensor.isDoubleTap()) {
         log_d("DoubleTap interrupt");
-        sendEvent(SENSOR_DOUBLE_TAP_DETECTED);
+        event = SENSOR_DOUBLE_TAP_DETECTED;
+        sendEvent(SENSOR_EVENT, &event);
     }
     if (sensor.isAnyNoMotion()) {
         log_d("Any motion / no motion interrupt");
-        sendEvent(SENSOR_ANY_MOTION_DETECTED);
+        event = SENSOR_ANY_MOTION_DETECTED;
+        sendEvent(SENSOR_EVENT, &event);
     }
 }
 
@@ -586,7 +592,7 @@ bool LilyGoWatch2022::initPMU()
 
 void LilyGoWatch2022::checkPowerStatus()
 {
-    static PMUEvent_t event;
+    static PMUEventType_t event;
 
     event = PMU_EVENT_NONE;
 

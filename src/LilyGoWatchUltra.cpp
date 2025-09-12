@@ -494,7 +494,7 @@ bool LilyGoUltra::initPMU()
 
 void LilyGoUltra::checkPowerStatus()
 {
-    static PMUEvent_t event;
+    static PMUEventType_t event;
 
     event = PMU_EVENT_NONE;
 
