@@ -27,6 +27,9 @@
 #define HW_EXPAND_ONLINE            (_BV(12))
 #define HW_CODEC_ONLINE             (_BV(13))
 #define HW_NRF24_ONLINE             (_BV(14))
+#define HW_SI473X_ONLINE            (_BV(15))
+#define HW_BME280_ONLINE            (_BV(16))
+#define HW_QMC5883P_ONLINE          (_BV(17))
 
 
 /* Selectively disable some initialisation */
@@ -34,23 +37,27 @@
 #define NO_HW_I2C_SCAN              (_BV(1))
 #define NO_SCAN_I2C_DEV             (_BV(2))
 // #define NO_HW_TFT                (_BV(1))
-#define NO_HW_TOUCH                 (_BV(12))
-#define NO_HW_SENSOR                (_BV(3))
-#define NO_HW_NFC                   (_BV(4))
-#define NO_HW_DRV                   (_BV(5))
-#define NO_HW_GPS                   (_BV(6))
-#define NO_HW_SD                    (_BV(7))
-#define NO_HW_MIC                   (_BV(8))
-#define NO_INIT_DELAY               (_BV(9))
-#define NO_HW_LORA                  (_BV(10))
-#define NO_HW_KEYBOARD              (_BV(11))
-#define NO_INIT_FATFS               (_BV(12))
+#define NO_HW_TOUCH                 (_BV(3))
+#define NO_HW_SENSOR                (_BV(4))
+#define NO_HW_NFC                   (_BV(5))
+#define NO_HW_DRV                   (_BV(6))
+#define NO_HW_GPS                   (_BV(7))
+#define NO_HW_SD                    (_BV(8))
+#define NO_HW_MIC                   (_BV(9))
+#define NO_INIT_DELAY               (_BV(10))
+#define NO_HW_LORA                  (_BV(11))
+#define NO_HW_KEYBOARD              (_BV(12))
+#define NO_INIT_FATFS               (_BV(13))
+#define NO_HW_SI4735                (_BV(14))
+#define NO_HW_BME280                (_BV(15))
+#define NO_HW_QMC5883P              (_BV(16))
 
 /* Hardware interrupt mask */
 #define HW_IRQ_TOUCHPAD             (_BV(0))
 #define HW_IRQ_RTC                  (_BV(1))
 #define HW_IRQ_POWER                (_BV(2))
 #define HW_IRQ_SENSOR               (_BV(3))
+#define HW_IRQ_EXPAND               (_BV(4))
 
 
 typedef enum PowerCtrlChannel {
@@ -76,6 +83,9 @@ typedef enum PowerCtrlChannel {
     POWER_KEYBOARD,
     // Extern gpio
     POWER_EXT_GPIO,
+    // SI4735 Radio 
+    POWER_SI4735_RADIO,
+
 } PowerCtrlChannel_t;
 
 
@@ -86,6 +96,9 @@ typedef enum WakeupSource {
     WAKEUP_SRC_ROTARY_BUTTON = _BV(3),
     WAKEUP_SRC_TIMER = _BV(4),
     WAKEUP_SRC_SENSOR = _BV(5),
+    // T-DeckV2 Only
+    WAKEUP_SRC_BUTTON_LEFT = _BV(6),
+    WAKEUP_SRC_BUTTON_RIGHT = _BV(7),
 } WakeupSource_t;
 
 
