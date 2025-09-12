@@ -45,6 +45,14 @@ enum DriverBusType {
     QSPI_DRIVER,
 };
 
+typedef struct  {
+    uint8_t madCmd;
+    uint16_t width;
+    uint16_t height;
+    uint16_t offset_x;
+    uint16_t offset_y;
+} DispRotationConfig_t;
+
 typedef struct {
     uint32_t addr;
     uint8_t param[20];
@@ -109,8 +117,14 @@ public:
 
     ~LilyGoDispQSPI() {};
 
-    void enableDMA(bool enable){ _use_dma_transaction = enable;}
-    void enableTearingEffect(bool enable){_use_tearing_effect = enable;}
+    void enableDMA(bool enable)
+    {
+        _use_dma_transaction = enable;
+    }
+    void enableTearingEffect(bool enable)
+    {
+        _use_tearing_effect = enable;
+    }
 
     bool init(int rst, int cs, int te, int sck, int d0, int d1, int d2, int d3,  uint32_t freq_Mhz = CONFIG_QSPI_MAX_FREQ);
     void end();
@@ -188,11 +202,15 @@ private:
     const CommandTable_t *_init_list;
     size_t _init_list_length;
     xSemaphoreHandle _lock;
+    const  DispRotationConfig_t *_rotation_configs;
+
 public:
     uint16_t _width, _height;
     uint8_t _brightness;
-    LilyGoDispArduinoSPI( uint16_t width, uint16_t height, const CommandTable_t *init_list, size_t init_list_length) :
-        _init_width(width), _init_height(height), _init_list(init_list), _init_list_length(init_list_length), _lock(NULL) {};
+    LilyGoDispArduinoSPI( uint16_t width, uint16_t height, const CommandTable_t *init_list, size_t init_list_length, const DispRotationConfig_t *rotation_config) :
+        _init_width(width), _init_height(height), _init_list(init_list), _init_list_length(init_list_length), _lock(NULL),_rotation_configs(rotation_config)
+    {
+    };
     ~LilyGoDispArduinoSPI() {};
     bool init(int sck, int miso, int mosi, int cs, int rst, int dc, int backlight, uint32_t freq_Mhz = CONFIG_ARDUINO_SPI_MAX_FREQ, SPIClass &spi = SPI);
     void end();

@@ -53,7 +53,7 @@ extern void setupMSC(lock_callback_t lock_cb, lock_callback_t ulock_cb);
 nRF24 nrf24 = new Module(44/*CS*/, 9/*IRQ*/, 43/*CE*/);
 #endif
 
-const CommandTable_t st7796_init_list[19] = {
+static const CommandTable_t st7796_init_list[19] = {
     {0x01, {0x00}, 0x80},
     {0x11, {0x00}, 0x80},
     {0xF0, {0xC3}, 0x01},
@@ -75,6 +75,43 @@ const CommandTable_t st7796_init_list[19] = {
     {0x29, {0x00}, 0x01},
 };
 
+
+// 4x10 character map
+static constexpr char keymap[4][10] = {
+    {'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'},
+    {'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', '\n'},
+    {'\0', 'z', 'x', 'c', 'v', 'b', 'n', 'm', '\0', '\0'},
+    {' ',/*Space*/ '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'}
+};
+// 4x10 symbol map
+static constexpr char symbol_map[4][10] = {
+    {'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'},
+    {'*', '/', '+', '-', '=', ':', '\'', '"', '@', '\0'},
+    {'\0', '_', '$', ';', '?', '!', ',', '.', '\0', '\0'},
+    {' '/*Space*/, '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'}
+};
+
+static const LilyGoKeyboardConfigure_t keyboardConfig = {
+    .kb_rows = 4,
+    .kb_cols = 10,
+    .current_keymap = &keymap[0][0],
+    .current_symbol_map = &symbol_map[0][0],
+    .symbol_key_value = 0x1E,
+    .alt_key_value = 0x14,
+    .caps_key_value = 0x1C,
+    .caps_b_key_value = 0xFF,
+    .char_b_value = 0x19,
+    .backspace_value = 0x1D,
+    .has_symbol_key = false
+};
+
+static const DispRotationConfig_t rotation_config[4] = {
+    {0xE8, DISP_HEIGHT, DISP_WIDTH, 0, 49},
+    {0x48, DISP_WIDTH, DISP_HEIGHT, 49, 0},
+    {0x28, DISP_HEIGHT, DISP_WIDTH, 0, 49},
+    {0x88, DISP_WIDTH, DISP_HEIGHT, 49, 0},
+};
+
 static bool _lock_callback(void)
 {
     return instance.lockSPI();
@@ -88,7 +125,8 @@ static bool _unlock_callback(void)
 
 LilyGoLoRaPager::LilyGoLoRaPager() : LilyGo_Display(SPI_DRIVER, false),
     LilyGoDispArduinoSPI(DISP_WIDTH, DISP_HEIGHT, st7796_init_list,
-                         sizeof(st7796_init_list) / sizeof(st7796_init_list[0]))
+                         sizeof(st7796_init_list) / sizeof(st7796_init_list[0]), rotation_config),
+    LilyGoEventManage()
 {
     _effects = 80;
     _brightness = 0;    //Default disp is brightness is zero
@@ -321,6 +359,21 @@ uint32_t LilyGoLoRaPager::begin(uint32_t disable_hw_init)
     }
 
     if (!(disable_hw_init & NO_HW_LORA)) {
+
+#if    defined(ARDUINO_LILYGO_LORA_SX1262)
+        log_d("Radio select  SX1262");
+#elif  defined(ARDUINO_LILYGO_LORA_SX1280)
+        log_d("Radio select  SX1280");
+#elif  defined(ARDUINO_LILYGO_LORA_CC1101)
+        log_d("Radio select  CC1101");
+#elif  defined(ARDUINO_LILYGO_LORA_LR1121)
+        log_d("Radio select  LR1121");
+#elif  defined(ARDUINO_LILYGO_LORA_SI4432)
+        log_d("Radio select  SI4432");
+#else
+        log_d("Radio select  None");
+#endif
+
         int state = radio.begin();
         if (state == RADIOLIB_ERR_NONE) {
             devices_probe |= HW_RADIO_ONLINE;
@@ -438,6 +491,9 @@ bool LilyGoLoRaPager::initPMU()
 
     // The charging current should not be greater than half of the battery capacity.
     ppm.setChargerConstantCurr(704);
+
+    // Enable measure
+    ppm.enableMeasure();
 
     return res;
 }
@@ -939,7 +995,7 @@ bool LilyGoLoRaPager::initNFC()
 bool LilyGoLoRaPager::initKeyboard()
 {
     kb.setPins(KB_BACKLIGHT);
-    bool res = kb.begin(Wire, KB_INT);
+    bool res = kb.begin(keyboardConfig, Wire, KB_INT);
     if (!res) {
         log_e("Failed to find Keyboard");
     } else {

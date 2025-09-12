@@ -95,7 +95,7 @@ bool LilyGoDispQSPI:: init(int rst, int cs, int te, int sck, int d0, int d1, int
         .flags = SPICOMMON_BUSFLAG_MASTER | SPICOMMON_BUSFLAG_GPIO_PINS,
     };
 
-    log_d("RST:%d D0:%d D1:%u D2:%d D3:%d SCK:%d CS:%d",rst, d0, d1, d2, d3, sck, cs);
+    log_d("RST:%d D0:%d D1:%u D2:%d D3:%d SCK:%d CS:%d", rst, d0, d1, d2, d3, sck, cs);
 
     spi_device_interface_config_t dev_config = {
         .command_bits = 8,
@@ -719,44 +719,13 @@ void LilyGoDispArduinoSPI::setRotation(uint8_t rotation)
 {
     _rotation = rotation % 4; // Limit the range of values to 0-3
     writeCommand(DISP_CMD_MADCTL);
-    switch (_rotation) {
-    case 0:
-        writeData(DISP_CMD_MAD_MX | DISP_CMD_MAD_MY | DISP_CMD_MAD_MV | TFT_MAD_COLOR_ORDER);
-        _width  = _init_height;
-        _height = _init_width;
-        if (_init_width == 222) {
-            _offset_x = 0;
-            _offset_y = 49;
-        }
-        break;
-    case 1:
-        writeData(DISP_CMD_MAD_MX | TFT_MAD_COLOR_ORDER);
-        _width  = _init_width;
-        _height = _init_height;
-        if (_init_width == 222) {
-            _offset_x = 49;
-            _offset_y = 0;
-        }
-        break;
-    case 2:
-        writeData(DISP_CMD_MAD_MV | TFT_MAD_COLOR_ORDER);
-        _width  = _init_height;
-        _height = _init_width;
-        if (_init_width == 222) {
-            _offset_x = 0;
-            _offset_y = 49;
-        }
-        break;
-    case 3:
-        writeData(DISP_CMD_MAD_MY | TFT_MAD_COLOR_ORDER);
-        _width  = _init_width;
-        _height = _init_height;
-        if (_init_width == 222) {
-            _offset_x = 49;
-            _offset_y = 0;
-        }
-        break;
-    }
+    writeData(_rotation_configs[_rotation].madCmd);
+    _width  = _rotation_configs[_rotation].width;
+    _height = _rotation_configs[_rotation].height;
+    _offset_x = _rotation_configs[_rotation].offset_x;
+    _offset_y = _rotation_configs[_rotation].offset_y;
+    log_d("setRotation %d madCmd=%d w=%d h=%d offset_x=%d offset_y=%d", _rotation,
+          _rotation_configs[_rotation].madCmd, _width, _height, _offset_x, _offset_y);
 }
 
 void LilyGoDispArduinoSPI::pushColors(uint16_t *data, uint32_t len)

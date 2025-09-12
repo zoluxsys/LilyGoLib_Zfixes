@@ -17,6 +17,20 @@
 #define KB_PRESSED  1
 #define KB_RELEASED 0
 
+typedef struct LilyGoKeyboardConfigure {
+    uint8_t kb_rows;
+    uint8_t kb_cols;
+    const char *current_keymap;
+    const char *current_symbol_map;
+    uint8_t symbol_key_value;
+    uint8_t alt_key_value;
+    uint8_t caps_key_value;
+    uint8_t caps_b_key_value;
+    uint8_t char_b_value;
+    uint8_t backspace_value;
+    // Is there a symbol combination key?
+    bool has_symbol_key;
+} LilyGoKeyboardConfigure_t;;
 
 // This class, LilyGoKeyboard, inherits from Adafruit_TCA8418 and is designed to handle keyboard operations.
 class LilyGoKeyboard : public Adafruit_TCA8418
@@ -25,6 +39,15 @@ public:
     // Typedef for a callback function that is invoked when a key is read.
     // It takes an integer representing the key state and a reference to a character to store the key value.
     using KeyboardReadCallback = void (*)(int state, char &c);
+
+    // Typedef for a callback function that is called when defined as a gpio.
+    using GpioEventCallback = void (*)(bool pressed, uint8_t gpio_idx);
+
+    // Typedef for a callback function called when adjusting the keyboard backlight.
+    using BacklightCallback = void (*)(uint8_t level);
+
+    // Typedef for a callback function called when keyboard press or release raw code.
+    using KeyboardRawCallback = void (*)(bool pressed, uint8_t raw);
 
     /**
      * @brief Default constructor for the LilyGoKeyboard class.
@@ -43,7 +66,14 @@ public:
      *
      * @param backlight The pin number to which the backlight is connected.
      */
-    void setPins(uint8_t backlight);
+    void setPins(int backlight);
+
+    // /**
+    //  * @brief Set the keyboard mapping index.
+    //  *
+    //  * @param maps T-LoRa-Pager uses 0, T-DeckV2 uses 1.
+    //  */
+    // void setMaps(uint8_t maps);
 
     /**
      * @brief Initializes the keyboard and sets up the I2C communication.
@@ -54,7 +84,7 @@ public:
      * @param scl The I2C clock line pin number. Defaults to the SCL macro.
      * @return true if the initialization is successful, false otherwise.
      */
-    bool begin(TwoWire &w, uint8_t irq, uint8_t sda = SDA, uint8_t scl = SCL);
+    bool begin(const LilyGoKeyboardConfigure_t &config, TwoWire &w, uint8_t irq, uint8_t sda = SDA, uint8_t scl = SCL);
 
     /**
      * @brief Ends the keyboard operation and releases associated resources.
@@ -89,6 +119,31 @@ public:
      * @param cb A pointer to the callback function of type KeyboardReadCallback.
      */
     void setCallback(KeyboardReadCallback cb);
+
+    /**
+     * @brief When the row and column gpio of an undefined keyboard are changed,
+     *      the host is notified through this callback function.
+     *
+     * @param cb A pointer to the callback function of type GpioEventCallback.
+     */
+    void setGpioEventCallback(GpioEventCallback cb);
+
+    /**
+     * @brief When the backlight callback function is set, the host will be
+     *      notified of the backlight adjustment through the callback function.
+     *
+     * @param cb A pointer to the callback function of type BacklightCallback.
+     */
+    void setBacklightChangeCallback(BacklightCallback cb);
+
+    /**
+     * @brief Set keyboard press or release raw callback function
+     * @note  When this callback is set, the program only returns the original key value and does
+     *          not continue with subsequent processing. The user needs to handle it by himself.
+     *
+     * @param cb A pointer to the callback function of type KeyboardRawCallback.
+     */
+    void setRawCallback(KeyboardRawCallback cb);
 
     /**
      * @brief Enables or disables the key repeat functionality.
@@ -172,8 +227,17 @@ private:
     bool lastState = false;
     // Pointer to the callback function.
     KeyboardReadCallback cb = NULL;
+    // Pointer to the gpio change callback function.
+    GpioEventCallback gpio_cb = NULL;
+    // Pointer to the backlight change callback function.
+    BacklightCallback bl_cb = NULL;
+    // Pointer to the keyboard press or release callback function.
+    KeyboardRawCallback raw_cb = NULL;
     // The time when the last key was pressed.
     uint32_t lastPressedTime = 0;
+    // Pointer to the storage keyboard config
+    const LilyGoKeyboardConfigure_t *_config;
+
 };
 #endif
 
