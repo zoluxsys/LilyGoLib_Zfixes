@@ -56,14 +56,21 @@ void setup()
     instance.onEvent(device_event_cb);
 }
 
-void device_event_cb(DeviceEvent_t event, void*user_data)
+void device_event_cb(DeviceEvent_t event, void *params, void * user_data)
 {
     uint32_t stepCounter;
-    switch (event) {
-    case PMU_EVENT_KEY_CLICKED:
-        instance.sensor.resetPedometer();
-        lv_label_set_text_fmt(label2, "[%lu]STEP COUNTER:%u", millis() / 1000, 0);
-        break;
+    
+    if (event == POWER_EVENT) {
+        if (instance.getPMUEventType(params) == PMU_EVENT_KEY_CLICKED) {
+            instance.sensor.resetPedometer();
+            lv_label_set_text_fmt(label2, "[%lu]STEP COUNTER:%u", millis() / 1000, 0);
+        }
+
+    }
+    if (event != SENSOR_EVENT) {
+        return;
+    }
+    switch (instance.getSensorEventType(params)) {
     case SENSOR_STEPS_UPDATED:
         stepCounter = instance.sensor.getPedometerCounter();
         Serial.printf("Step count interrupt,step Counter:%u\n", stepCounter);

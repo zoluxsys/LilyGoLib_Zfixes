@@ -74,9 +74,11 @@ void setup()
     // T-Watch-S3 , T-Watch-S3-Plus , T-Watch-Ultra brightness level is 0 ~ 255
     instance.setBrightness(DEVICE_MAX_BRIGHTNESS_LEVEL);
 
-    instance.onEvent([](DeviceEvent_t event, void *user_data) {
-        power_button_clicked = true;
-    }, PMU_EVENT_KEY_CLICKED, NULL);
+    instance.onEvent([](DeviceEvent_t event, void *params, void * user_data) {
+        if (instance.getPMUEventType(params) == PMU_EVENT_KEY_CLICKED) {
+            power_button_clicked = true;
+        }
+    }, POWER_EVENT, NULL);
 
     // Waiting to press the crown to go to sleep
     while (!power_button_clicked) {

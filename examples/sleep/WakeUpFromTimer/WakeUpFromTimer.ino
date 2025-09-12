@@ -75,9 +75,12 @@ void setup()
         delay(5);
     }
 #else
-    instance.onEvent([](DeviceEvent_t event, void * user_data) {
-        power_button_clicked = true;
-    }, PMU_EVENT_KEY_CLICKED, NULL);
+
+    instance.onEvent([](DeviceEvent_t event, void *params, void * user_data) {
+        if (instance.getPMUEventType(params) == PMU_EVENT_KEY_CLICKED) {
+            power_button_clicked = true;
+        }
+    }, POWER_EVENT, NULL);
 
     // Waiting to press the crown to go to sleep
     while (!power_button_clicked) {
@@ -107,7 +110,7 @@ void setup()
     * Wake up by esp32 timer and RTC backup battery power is turned off.
     * T-Watch-S3 deep sleep is about 460uA
     * T-Watch-S3-Ultra deep sleep is about 850uA
-    * T-LoRa-Pager can't on/off rtc backup domain, deep sleep is about 530uA 
+    * T-LoRa-Pager can't on/off rtc backup domain, deep sleep is about 530uA
     * * */
     instance.sleep(WAKEUP_SRC_TIMER, true, sleep_second);
 
@@ -117,7 +120,7 @@ void setup()
     * Wake up by esp32 timer and RTC backup battery power supply is not turned off.
     * T-Watch-S3 deep sleep is about 510uA
     * T-Watch-S3-Ultra deep sleep is about 1.1mA
-    * T-LoRa-Pager can't on/off rtc backup domain, deep sleep is about 530uA 
+    * T-LoRa-Pager can't on/off rtc backup domain, deep sleep is about 530uA
     * * */
     // instance.sleep(WAKEUP_SRC_TIMER, false, sleep_second);
 

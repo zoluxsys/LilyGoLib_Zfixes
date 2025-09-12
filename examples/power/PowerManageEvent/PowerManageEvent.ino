@@ -14,9 +14,12 @@
 lv_obj_t *label1;
 
 
-void device_event_cb(DeviceEvent_t event, void*user_data)
+void device_event_cb(DeviceEvent_t event, void*params, void*user_data)
 {
-    switch (event) {
+    if (event != POWER_EVENT) {
+        return;
+    }
+    switch (instance.getPMUEventType(params)) {
     case PMU_EVENT_BATTERY_LOW_TEMP:
         Serial.println("Battery temperature is low");
         break;
@@ -66,7 +69,7 @@ void device_event_cb(DeviceEvent_t event, void*user_data)
         Serial.println("Battery charging finish");
         break;
     case PMU_EVENT_BAT_FET_OVER_CURRENT:
-        Serial.println("Battery FET overcurrent detected");
+        Serial.println("Battery FET over-current detected");
         break;
     default:
         break;
@@ -104,8 +107,8 @@ void setup()
     // T-Watch-S3 , T-Watch-S3-Plus , T-Watch-Ultra brightness level is 0 ~ 255
     instance.setBrightness(DEVICE_MAX_BRIGHTNESS_LEVEL);
 
-    // Register device event
-    instance.onEvent(device_event_cb);
+    // Register power event
+    instance.onEvent(device_event_cb, POWER_EVENT, NULL);
 
 }
 

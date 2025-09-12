@@ -63,9 +63,11 @@ void setup()
     instance.setBrightness(DEVICE_MAX_BRIGHTNESS_LEVEL);
 
 #ifdef USING_PMU_MANAGE
-    instance.onEvent([](DeviceEvent_t event, void * user_data) {
-        power_button_clicked = true;
-    }, PMU_EVENT_KEY_CLICKED, NULL);
+    instance.onEvent([](DeviceEvent_t event, void *params, void * user_data) {
+        if (instance.getPMUEventType(params) == PMU_EVENT_KEY_CLICKED) {
+            power_button_clicked = true;
+        }
+    }, POWER_EVENT, NULL);
 #endif
 
     label = lv_label_create(lv_scr_act());

@@ -60,7 +60,7 @@ void setup()
     // T-Watch-S3 , T-Watch-S3-Plus , T-Watch-Ultra brightness level is 0 ~ 255
     instance.setBrightness(DEVICE_MAX_BRIGHTNESS_LEVEL);
 
-    instance.onEvent([](DeviceEvent_t event, void * user_data) {
+    instance.onEvent([](DeviceEvent_t event, void *params, void * user_data) {
         isAlarm = true;
     }, RTC_EVENT_INTERRUPT, NULL);
 
