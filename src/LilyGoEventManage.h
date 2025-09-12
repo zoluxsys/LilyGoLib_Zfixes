@@ -10,6 +10,7 @@
 #include <vector>
 
 typedef enum ButtonEvent {
+    BUTTON_EVENT_NONE,
     BUTTON_EVENT_RELEASED,
     BUTTON_EVENT_PRESSED,
     BUTTON_EVENT_CLICK,
@@ -30,13 +31,13 @@ typedef enum TrackballDir {
     TRACKBALL_DIR_RIGHT
 } TrackballDir_t;
 
-typedef enum {
+typedef enum SDEvent {
+    SDCARD_EVENT_NONE,
     SDCARD_EVENT_REMOVE,
     SDCARD_EVENT_INSERT
 } SDEvent_t;
 
-
-typedef enum {
+typedef enum PMUEventType {
     PMU_EVENT_NONE,
     PMU_EVENT_BATTERY_LOW_TEMP,
     PMU_EVENT_BATTERY_HIGH_TEMP,
@@ -55,25 +56,32 @@ typedef enum {
     PMU_EVENT_CHARGE_STARTED,
     PMU_EVENT_CHARGE_FINISH,
     PMU_EVENT_BAT_FET_OVER_CURRENT,
-} PMUEvent_t;
+} PMUEventType_t;
+
+typedef enum SensorEventType {
+    SENSOR_EVENT_NONE,
+    SENSOR_EVENT_INTERRUPT,
+    SENSOR_STEPS_UPDATED,
+    SENSOR_ACTIVITY_DETECTED,
+    SENSOR_TILT_DETECTED,
+    SENSOR_DOUBLE_TAP_DETECTED,
+    SENSOR_ANY_MOTION_DETECTED
+} SensorEventType_t;
 
 
 typedef enum {
     NONE_EVENT,
     POWER_EVENT,
     RTC_EVENT_INTERRUPT,
-    // TODO: Sensor event types
-    SENSOR_EVENT_INTERRUPT,
-    SENSOR_STEPS_UPDATED,
-    SENSOR_ACTIVITY_DETECTED,
-    SENSOR_TILT_DETECTED,
-    SENSOR_DOUBLE_TAP_DETECTED,
-    SENSOR_ANY_MOTION_DETECTED,
+    SENSOR_EVENT,
     BUTTON_EVENT,
     TRACKBALL_EVENT,
     SDCARD_EVENT,
     ALL_EVENT_MAX,
 } DeviceEvent_t;
+
+
+
 
 using DeviceEventCb_t = void (*)(DeviceEvent_t event, void *params, void * user_data);
 
@@ -154,6 +162,50 @@ public:
                 entry.cb(event, params, entry.user_data);
             }
         }
+    }
+
+    PMUEventType_t getPMUEventType(void *params)
+    {
+        if (!params) {
+            return PMU_EVENT_NONE;
+        }
+        return *(static_cast < PMUEventType_t* > (params));
+    }
+
+    SensorEventType_t getSensorEventType(void *params)
+    {
+        if (!params) {
+            return SENSOR_EVENT_NONE;
+        }
+        return *(static_cast < SensorEventType_t* > (params));
+    }
+
+    SDEvent_t getSDEventType(void *params)
+    {
+        if (!params) {
+            return SDCARD_EVENT_NONE;
+        }
+        return *(static_cast < SDEvent_t* > (params));
+    }
+
+    ButtonEvent_t getButtonEventType(void *params)
+    {
+        if (!params) {
+            return BUTTON_EVENT_NONE;
+        }
+        return *(static_cast < ButtonEvent_t * > (params));
+    }
+
+    TrackballDir_t getTrackballDirType(void *params)
+    {
+        if (!params) {
+            return TRACKBALL_DIR_NONE;
+        }
+        TrackballDir_t tp = *(static_cast < TrackballDir_t * > (params));
+        if (tp >= TRACKBALL_DIR_NONE && tp <= TRACKBALL_DIR_RIGHT) {
+            return tp;
+        }
+        return TRACKBALL_DIR_NONE;
     }
 };
 
