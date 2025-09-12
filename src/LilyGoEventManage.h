@@ -9,6 +9,33 @@
 #include <Arduino.h>
 #include <vector>
 
+typedef enum ButtonEvent {
+    BUTTON_EVENT_RELEASED,
+    BUTTON_EVENT_PRESSED,
+    BUTTON_EVENT_CLICK,
+    BUTTON_EVENT_LONG_PRESSED,
+    BUTTON_EVENT_DOUBLE_CLICK,
+} ButtonEvent_t;
+
+typedef struct ButtonEventParam {
+    uint8_t id;
+    uint8_t event;
+} ButtonEventParam_t;
+
+typedef enum TrackballDir {
+    TRACKBALL_DIR_NONE,
+    TRACKBALL_DIR_UP,
+    TRACKBALL_DIR_DOWN,
+    TRACKBALL_DIR_LEFT,
+    TRACKBALL_DIR_RIGHT
+} TrackballDir_t;
+
+typedef enum {
+    SDCARD_EVENT_REMOVE,
+    SDCARD_EVENT_INSERT
+} SDEvent_t;
+
+
 typedef enum {
     PMU_EVENT_NONE,
     PMU_EVENT_BATTERY_LOW_TEMP,
@@ -28,33 +55,39 @@ typedef enum {
     PMU_EVENT_CHARGE_STARTED,
     PMU_EVENT_CHARGE_FINISH,
     PMU_EVENT_BAT_FET_OVER_CURRENT,
+} PMUEvent_t;
 
+
+typedef enum {
+    NONE_EVENT,
+    POWER_EVENT,
     RTC_EVENT_INTERRUPT,
-
+    // TODO: Sensor event types
     SENSOR_EVENT_INTERRUPT,
-
     SENSOR_STEPS_UPDATED,
     SENSOR_ACTIVITY_DETECTED,
     SENSOR_TILT_DETECTED,
     SENSOR_DOUBLE_TAP_DETECTED,
     SENSOR_ANY_MOTION_DETECTED,
-
+    BUTTON_EVENT,
+    TRACKBALL_EVENT,
+    SDCARD_EVENT,
     ALL_EVENT_MAX,
 } DeviceEvent_t;
 
-using DeviceEventCb_t = void (*)(DeviceEvent_t event, void * user_data);
+using DeviceEventCb_t = void (*)(DeviceEvent_t event, void *params, void * user_data);
 
 typedef struct DeviceEventCbList {
     DeviceEventCb_t cb;
     DeviceEvent_t event;
     void *user_data;
-    DeviceEventCbList() :  cb(NULL), event(PMU_EVENT_NONE), user_data(NULL) {}
+    DeviceEventCbList() :  cb(NULL), event(NONE_EVENT), user_data(NULL) {}
 } DeviceEventCbList_t;
 
 class LilyGoEventManage
 {
 private:
-    std::vector<DeviceEventCbList_t> cbEventList;
+    std::vector < DeviceEventCbList_t > cbEventList;
 public:
     LilyGoEventManage()
     {
@@ -113,12 +146,12 @@ public:
         cbEventList.erase(cbEventList.begin() + i);
     }
 
-    void sendEvent(DeviceEvent_t event)
+    void sendEvent(DeviceEvent_t event, void * params = NULL)
     {
         for (uint32_t i = 0; i < cbEventList.size(); i++) {
             DeviceEventCbList_t entry = cbEventList[i];
             if (entry.cb && entry.event == event || entry.event == ALL_EVENT_MAX) {
-                entry.cb(event, entry.user_data);
+                entry.cb(event, params, entry.user_data);
             }
         }
     }

@@ -174,6 +174,21 @@ uint32_t LilyGoWatch2022::begin(uint32_t disable_hw_init)
 #endif // USING_PCM_AMPLIFIER
 
     if (!(disable_hw_init & NO_HW_LORA)) {
+
+#if    defined(ARDUINO_LILYGO_LORA_SX1262)
+        log_d("Radio select  SX1262");
+#elif  defined(ARDUINO_LILYGO_LORA_SX1280)
+        log_d("Radio select  SX1280");
+#elif  defined(ARDUINO_LILYGO_LORA_CC1101)
+        log_d("Radio select  CC1101");
+#elif  defined(ARDUINO_LILYGO_LORA_LR1121)
+        log_d("Radio select  LR1121");
+#elif  defined(ARDUINO_LILYGO_LORA_SI4432)
+        log_d("Radio select  SI4432");
+#else
+        log_d("Radio select  None");
+#endif
+
         int state = radio.begin();
         if (state == RADIOLIB_ERR_NONE) {
             devices_probe |= HW_RADIO_ONLINE;
@@ -571,55 +586,58 @@ bool LilyGoWatch2022::initPMU()
 
 void LilyGoWatch2022::checkPowerStatus()
 {
+    static PMUEvent_t event;
+
+    event = PMU_EVENT_NONE;
+
+    bool batteryInsert = pmu.isBatteryConnect();
     // Get PMU Interrupt Status Register
     pmu.getIrqStatus();
 
     if (pmu.isDropWarningLevel2Irq()) {
         log_d("isDropWarningLevel2");
-        sendEvent(PMU_EVENT_LOW_VOLTAGE_LEVEL2);
+        event = PMU_EVENT_LOW_VOLTAGE_LEVEL2;
     }
     if (pmu.isDropWarningLevel1Irq()) {
         log_d("isDropWarningLevel1");
-        sendEvent(PMU_EVENT_LOW_VOLTAGE_LEVEL1);
+        event = PMU_EVENT_LOW_VOLTAGE_LEVEL1;
     }
     if (pmu.isGaugeWdtTimeoutIrq()) {
         log_d("isWdtTimeout");
-        // sendEvent(PMU_EVENT_LOW_VOLTAGE_LEVEL1);
     }
     if (pmu.isBatChargerOverTemperatureIrq()) {
         log_d("isBatChargeOverTemperature");
-        sendEvent(PMU_EVENT_CHARGE_HIGH_TEMP);
+        event = PMU_EVENT_CHARGE_HIGH_TEMP;
     }
     if (pmu.isBatWorkOverTemperatureIrq()) {
         log_d("isBatWorkOverTemperature");
-        // sendEvent(PMU_EVENT_LOW_VOLTAGE_LEVEL1);
     }
     if (pmu.isBatWorkUnderTemperatureIrq()) {
         log_d("isBatWorkUnderTemperature");
     }
     if (pmu.isVbusInsertIrq()) {
         log_d("isVbusInsert");
-        sendEvent(PMU_EVENT_USBC_INSERT);
+        event = PMU_EVENT_USBC_INSERT;
     }
     if (pmu.isVbusRemoveIrq()) {
         log_d("isVbusRemove");
-        sendEvent(PMU_EVENT_USBC_REMOVE);
+        event = PMU_EVENT_USBC_REMOVE;
     }
     if (pmu.isBatInsertIrq()) {
         log_d("isBatInsert");
-        sendEvent(PMU_EVENT_BATTERY_INSERT);
+        event = PMU_EVENT_BATTERY_INSERT;
     }
     if (pmu.isBatRemoveIrq()) {
         log_d("isBatRemove");
-        sendEvent(PMU_EVENT_BATTERY_REMOVE);
+        event = PMU_EVENT_BATTERY_REMOVE;
     }
     if (pmu.isPekeyShortPressIrq()) {
         log_d("isPekeyShortPress");
-        sendEvent(PMU_EVENT_KEY_CLICKED);
+        event = PMU_EVENT_KEY_CLICKED;
     }
     if (pmu.isPekeyLongPressIrq()) {
         log_d("isPekeyLongPress");
-        sendEvent(PMU_EVENT_KEY_LONG_PRESSED);
+        event = PMU_EVENT_KEY_LONG_PRESSED;
     }
     if (pmu.isPekeyNegativeIrq()) {
         log_d("isPekeyNegative");
@@ -636,27 +654,35 @@ void LilyGoWatch2022::checkPowerStatus()
     if (pmu.isBatfetOverCurrentIrq()) {
         log_d("isBatfetOverCurrentIrq");
     }
-    if (pmu.isBatChargeDoneIrq()) {
-        log_d("isBatChargeDone");
-        sendEvent(PMU_EVENT_CHARGE_FINISH);
+
+    if (batteryInsert) {
+        if (pmu.isBatChargeDoneIrq()) {
+            log_d("isBatChargeDone");
+            event = PMU_EVENT_CHARGE_FINISH;
+        }
+        if (pmu.isBatChargeStartIrq()) {
+            log_d("isBatChargeStart");
+            event = PMU_EVENT_CHARGE_STARTED;
+        }
     }
-    if (pmu.isBatChargeStartIrq()) {
-        log_d("isBatChargeStart");
-        sendEvent(PMU_EVENT_CHARGE_STARTED);
-    }
+
     if (pmu.isBatDieOverTemperatureIrq()) {
         log_d("isBatDieOverTemperature");
     }
     if (pmu.isChargeOverTimeoutIrq()) {
         log_d("isChargeOverTimeout");
-        sendEvent(PMU_EVENT_CHARGE_TIMEOUT);
+        event = PMU_EVENT_CHARGE_TIMEOUT;
     }
     if (pmu.isBatOverVoltageIrq()) {
         log_d("isBatOverVoltage");
-        sendEvent(PMU_EVENT_BATTERY_OVER_VOLTAGE);
+        event = PMU_EVENT_BATTERY_OVER_VOLTAGE;
     }
     // Clear PMU Interrupt Status Register
     pmu.clearIrqStatus();
+
+    if (event != PMU_EVENT_NONE) {
+        sendEvent(POWER_EVENT, &event);
+    }
 }
 
 void LilyGoWatch2022::powerControl(PowerCtrlChannel_t ch, bool enable)
