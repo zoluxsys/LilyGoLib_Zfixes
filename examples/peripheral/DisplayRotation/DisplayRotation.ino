@@ -90,7 +90,7 @@ void loop()
 
 #ifndef ARDUINO_T_LORA_PAGER
     lv_point_t point;
-    lv_indev_t *indev = lv_indev_get_next(NULL);
+    lv_indev_t *indev = lv_get_touch_indev();
     if (indev) {
         if (lv_indev_get_state(indev) == LV_INDEV_STATE_PRESSED) {
             lv_indev_get_point(indev, &point);

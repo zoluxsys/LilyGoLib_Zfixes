@@ -103,7 +103,7 @@ static void keypad_read(lv_indev_t *drv, lv_indev_data_t *data)
 {
     static uint32_t last_key = 0;
     uint32_t act_key ;
-    char c;
+    char c = '\0';
     auto *plane = (LilyGo_Display *)lv_indev_get_user_data(drv);
     int state = plane->getKeyChar(&c);
     if (state == KEYBOARD_PRESSED) {
@@ -355,5 +355,17 @@ void lv_set_default_group(lv_group_t *group)
     lv_group_set_default(group);
 }
 
+lv_indev_t *lv_get_touch_indev()
+{
+    return indev_touch;
+}
 
-#endif
+lv_indev_t *lv_get_keyboard_indev()
+{
+    return indev_keyboard;
+}
+
+lv_indev_t *lv_get_encoder_indev()
+{
+    return indev_encoder;
+}
