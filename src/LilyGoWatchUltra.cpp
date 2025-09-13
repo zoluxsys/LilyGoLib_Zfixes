@@ -1235,7 +1235,7 @@ void LilyGoUltra::loop()
     if (bits & HW_IRQ_SENSOR) {
         clearEventBits(HW_IRQ_SENSOR);
         sensor.update();
-        sendEvent(SENSOR_EVENT_INTERRUPT);
+        sendEvent(SENSOR_EVENT);
     }
 
     lockSPI();
