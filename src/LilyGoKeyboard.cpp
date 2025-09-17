@@ -91,6 +91,13 @@ bool LilyGoKeyboard::begin(const LilyGoKeyboardConfigure_t &config, TwoWire &w, 
         return false;
     }
 
+    symbol_key_pressed = false;
+    cap_key_pressed = false;
+    alt_key_pressed = false;
+    lastState = false;
+    lastKeyVal = '\0';
+    lastPressedTime = 0;
+
     log_d("Initializing Keyboard succeeded");
 
     _config = &config;
@@ -112,6 +119,8 @@ bool LilyGoKeyboard::begin(const LilyGoKeyboardConfigure_t &config, TwoWire &w, 
 
 void LilyGoKeyboard::end()
 {
+    setBrightness(0);
+    
     if (_irq > 0) {
         this->disableInterrupts();
         detachInterrupt(_irq);
