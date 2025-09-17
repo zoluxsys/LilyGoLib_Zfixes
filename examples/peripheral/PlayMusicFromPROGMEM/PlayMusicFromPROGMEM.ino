@@ -22,7 +22,7 @@
 #include "aac_buffer.h"
 
 
-#if defined(ARDUINO_T_LORA_PAGER)
+#if defined(USING_AUDIO_CODEC)
 class EspAudioOutput : public AudioOutput
 {
 public:
@@ -84,7 +84,7 @@ private:
 
 EspAudioOutput          *out = NULL;
 
-#else /*ARDUINO_T_LORA_PAGER*/
+#else /*USING_AUDIO_CODEC*/
 
 #include <AudioOutputI2S.h>
 
@@ -95,7 +95,7 @@ uint8_t i2sPort = 1;
 
 AudioOutputI2S          *out = NULL;
 
-#endif /*ARDUINO_T_LORA_PAGER*/
+#endif /*USING_AUDIO_CODEC*/
 
 AudioGeneratorWAV       *wav = NULL;
 AudioFileSourcePROGMEM  *file = NULL;
@@ -291,7 +291,7 @@ void setup(void)
 
     file = new AudioFileSourcePROGMEM();
 
-#if defined(ARDUINO_T_LORA_PAGER)
+#if defined(USING_AUDIO_CODEC)
 
     // Set up the use of an external decoder
     out = new EspAudioOutput(instance.codec);
@@ -310,7 +310,7 @@ void setup(void)
     //Adjust to appropriate gain
     out->SetGain(3.8);
 
-#endif /*ARDUINO_T_LORA_PAGER*/
+#endif /*USING_AUDIO_CODEC*/
 
     wav = new AudioGeneratorWAV();
 

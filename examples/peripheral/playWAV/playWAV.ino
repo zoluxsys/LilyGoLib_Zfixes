@@ -14,7 +14,7 @@
 static void event_handler(lv_event_t *e)
 {
     Serial.println("Play WAV...");
-#ifdef ARDUINO_T_LORA_PAGER
+#ifdef USING_AUDIO_CODEC
     // T-LoRa-Pager uses Codec
     instance.codec.setVolume(20);
     instance.codec.playWAV((uint8_t*)wav_hex, wav_hex_len);

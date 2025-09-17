@@ -26,7 +26,7 @@ uint32_t last_action_time = 0;
 
 void write(uint8_t * buffer, size_t size)
 {
-#ifdef ARDUINO_T_LORA_PAGER
+#ifdef USING_AUDIO_CODEC
     // T-LoRa-Pager uses Codec
     instance.codec.write(buffer, size);
 #else
@@ -61,7 +61,7 @@ void setup()
     instance.setBrightness(DEVICE_MAX_BRIGHTNESS_LEVEL);
 
 
-#ifdef ARDUINO_T_LORA_PAGER
+#ifdef USING_AUDIO_CODEC
     // T-LoRa-Pager Open the audio device before writing
     instance.codec.setVolume(80);
     if (instance.codec.open(16, 1, SAMPLE_RATE) < 0) {

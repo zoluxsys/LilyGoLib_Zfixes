@@ -30,7 +30,7 @@ void setup()
 
     // Record 5 seconds of audio data
 
-#ifdef ARDUINO_T_LORA_PAGER
+#ifdef USING_AUDIO_CODEC
     // T-LoRa-Pager uses Codec
     instance.codec.setGain(50.0);
     wav_buffer = instance.codec.recordWAV(5, &wav_size);
@@ -51,7 +51,7 @@ void setup()
     // Turn on the audio power, the default is off
     instance.powerControl(POWER_SPEAK, true);
 
-#ifdef ARDUINO_T_LORA_PAGER
+#ifdef USING_AUDIO_CODEC
     instance.codec.setVolume(20);
 #endif
 }
@@ -60,7 +60,7 @@ void loop()
 {
     lv_task_handler();
 
-#ifdef ARDUINO_T_LORA_PAGER
+#ifdef USING_AUDIO_CODEC
     // T-LoRa-Pager uses Codec
     instance.codec.playWAV((uint8_t*)wav_buffer, wav_size);
 #else
