@@ -315,6 +315,33 @@ public:
      */
     const char *getName();
 
+    /**
+     * @brief Get the number of codec input channels.(Microphone)
+     *
+     * This function returns the number of codec input channels available in the device.
+     *
+     * @return uint8_t The number of codec input channels.
+     */
+    uint8_t getCodecInputChannels(){ return 1; };
+
+    /**
+     * @brief Get the number of codec audio output channels.(Speaker)
+     *
+     * This function returns the number of codec audio output channels available in the device.
+     *
+     * @return uint8_t The number of codec audio output channels.
+     */
+    uint8_t getCodecOutputChannels(){ return 1; };
+
+    /**
+     * @brief Get the maximum display brightness level.
+     *
+     * This function returns the maximum brightness level that the display can achieve.
+     *
+     * @return uint8_t The maximum display brightness level.
+     */
+    uint8_t getDisplayBrightnessMaxLevel(){ return 255; };
+
 private:
     /**
      * @brief Clear the specified event bits.
