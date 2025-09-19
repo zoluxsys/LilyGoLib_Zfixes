@@ -30,7 +30,7 @@ void write(uint8_t * buffer, size_t size)
     // T-LoRa-Pager uses Codec
     instance.codec.write(buffer, size);
 #else
-    // T-Watch-S3 / T-Watch-S3-Ultar Use Player
+    // T-Watch-S3 / T-Watch-S3-Ultra Use Player
     instance.player.write(buffer, size);
 #endif
 }

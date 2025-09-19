@@ -19,7 +19,7 @@ static void event_handler(lv_event_t *e)
     instance.codec.setVolume(20);
     instance.codec.playWAV((uint8_t*)wav_hex, wav_hex_len);
 #else
-    // T-Watch-S3 / T-Watch-S3-Ultar Use Player
+    // T-Watch-S3 / T-Watch-S3-Ultra Use Player
     instance.player.playWAV((uint8_t*)wav_hex, wav_hex_len);
 #endif
 }

@@ -35,7 +35,7 @@ void setup()
     instance.codec.setGain(50.0);
     wav_buffer = instance.codec.recordWAV(5, &wav_size);
 #else
-    // T-Watch-S3 / T-Watch-S3-Ultar Use PDM Microphone
+    // T-Watch-S3 / T-Watch-S3-Ultra Use PDM Microphone
     wav_buffer = instance.mic.recordWAV(5, &wav_size);
 #endif
 
@@ -64,7 +64,7 @@ void loop()
     // T-LoRa-Pager uses Codec
     instance.codec.playWAV((uint8_t*)wav_buffer, wav_size);
 #else
-    // T-Watch-S3 / T-Watch-S3-Ultar Use Player
+    // T-Watch-S3 / T-Watch-S3-Ultra Use Player
     instance.player.playWAV(wav_buffer, wav_size);
 #endif
 
