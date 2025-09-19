@@ -1238,9 +1238,11 @@ void LilyGoUltra::loop()
         sendEvent(SENSOR_EVENT);
     }
 
-    lockSPI();
-    NFCReader.rfalNfcWorker();
-    unlockSPI();
+    if (devices_probe & HW_NFC_ONLINE) {
+        lockSPI();
+        NFCReader.rfalNfcWorker();
+        unlockSPI();
+    }
 
 }
 

@@ -486,6 +486,9 @@ bool LilyGoLoRaPager::initPMU()
     if (!res) {
         return false;
     }
+    // Reset PPM
+    ppm.resetDefault();
+
     // Set the charging target voltage full voltage to 4288mV
     ppm.setChargeTargetVoltage(4288);
 
@@ -1182,9 +1185,11 @@ void LilyGoLoRaPager::loop()
         sensor.update();
     }
 
-    lockSPI();
-    NFCReader.rfalNfcWorker();
-    unlockSPI();
+    if (devices_probe & HW_NFC_ONLINE) {
+        lockSPI();
+        NFCReader.rfalNfcWorker();
+        unlockSPI();
+    }
 }
 
 RotaryMsg_t LilyGoLoRaPager::getRotary()
