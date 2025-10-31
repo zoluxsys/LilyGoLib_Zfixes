@@ -609,7 +609,7 @@ bool LilyGoUltra::installSD()
 #endif /*EXPANDS_SD_DET*/
 
     // Set mount point to /fs
-    if (!SD.begin(SD_CS, SPI, 4000000U, "/fs")) {
+    if (!SD.begin(SD_CS, SPI, 4000000U, "/sd")) {
         log_e("Failed to detect SD Card!!");
         return false;
     }
@@ -1144,7 +1144,8 @@ bool LilyGoUltra::initSensor()
         log_d("Initializing BHI260AP succeeded");
         devices_probe |= HW_SENSOR_ONLINE;
 
-        sensor.setRemapAxes(SensorBHI260AP::TOP_LAYER_RIGHT_CORNER);
+        // sensor.setRemapAxes(SensorBHI260AP::TOP_LAYER_RIGHT_CORNER); // Initial test version
+        sensor.setRemapAxes(SensorBHI260AP::TOP_LAYER_BOTTOM_RIGHT_CORNER);
 
         pinMode(SENSOR_INT, INPUT);
         attachInterrupt(SENSOR_INT, []() {
@@ -1238,11 +1239,11 @@ void LilyGoUltra::loop()
         sendEvent(SENSOR_EVENT);
     }
 
-    if (devices_probe & HW_NFC_ONLINE) {
-        lockSPI();
-        NFCReader.rfalNfcWorker();
-        unlockSPI();
-    }
+    // if (devices_probe & HW_NFC_ONLINE) {
+    //     lockSPI();
+    //     NFCReader.rfalNfcWorker();
+    //     unlockSPI();
+    // }
 
 }
 

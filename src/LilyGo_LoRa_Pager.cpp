@@ -517,7 +517,7 @@ bool LilyGoLoRaPager::installSD()
 
     initShareSPIPins();
     // Set mount point to /fs
-    if (!SD.begin(SD_CS, SPI, 4000000U, "/fs")) {
+    if (!SD.begin(SD_CS, SPI, 4000000U, "/sd")) {
         log_e("Failed to detect SD Card!!");
         return false;
     }
@@ -731,7 +731,9 @@ void LilyGoLoRaPager::lightSleep(WakeupSource_t wakeup_src)
 
     radio.sleep();
 
-    kb.end();
+    if (devices_probe & HW_KEYBOARD_ONLINE) {
+        kb.end();
+    }
 
     powerControl(POWER_HAPTIC_DRIVER, false);
     powerControl(POWER_GPS, false);
@@ -819,8 +821,10 @@ void LilyGoLoRaPager::sleep(WakeupSource_t wakeup_src, bool off_rtc_backup_domai
     vTaskDelete(rotaryHandler);
 
     ppm.disableMeasure();
-
-    kb.end();
+    
+    if (devices_probe & HW_KEYBOARD_ONLINE) {
+        kb.end();
+    }
 
     backlight.setBrightness(0);
 
@@ -991,6 +995,8 @@ bool LilyGoLoRaPager::initNFC()
     } else {
         log_d("Initializing NFC Reader succeeded");
         devices_probe |= HW_NFC_ONLINE;
+        // Turn off NFC power
+        powerControl(POWER_NFC, false);
     }
     return res;
 }
@@ -1185,11 +1191,11 @@ void LilyGoLoRaPager::loop()
         sensor.update();
     }
 
-    if (devices_probe & HW_NFC_ONLINE) {
-        lockSPI();
-        NFCReader.rfalNfcWorker();
-        unlockSPI();
-    }
+    // if (devices_probe & HW_NFC_ONLINE) {
+    //     lockSPI();
+    //     NFCReader.rfalNfcWorker();
+    //     unlockSPI();
+    // }
 }
 
 RotaryMsg_t LilyGoLoRaPager::getRotary()
