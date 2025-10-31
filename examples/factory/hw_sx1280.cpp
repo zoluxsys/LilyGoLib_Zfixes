@@ -46,7 +46,7 @@ int16_t hw_set_radio_params(radio_params_t &params)
     printf("interval:%u ms\n", params.interval);
     printf("CR:%u ms\n", params.cr);
     printf("SF:%u ms\n", params.sf);
-    printf("SyncWord:%u ms\n", params.syncWord);
+    printf("SyncWord:%u \n", params.syncWord);
     printf("interval:%u ms\n", params.interval);
     printf("Mode: ");
     switch (params.mode) {
@@ -305,7 +305,7 @@ float radio_get_freq_from_index(uint8_t index)
     return freq_list[index];
 }
 
-const char *radio_get_bandwidth_list()
+const char *radio_get_bandwidth_list(bool high_freq)
 {
     return "203.125KHz\n"
            "406.25KHz\n"
@@ -321,7 +321,7 @@ float radio_get_bandwidth_from_index(uint8_t index)
     return bandwidth_list[index];
 }
 
-const char *radio_get_tx_power_list()
+const char *radio_get_tx_power_list(bool high_freq)
 {
     return  "0dBm\n"
             "1dBm\n"

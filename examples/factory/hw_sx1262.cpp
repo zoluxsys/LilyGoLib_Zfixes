@@ -49,7 +49,7 @@ int16_t hw_set_radio_params(radio_params_t &params)
     printf("interval:%u ms\n", params.interval);
     printf("CR:%u ms\n", params.cr);
     printf("SF:%u ms\n", params.sf);
-    printf("SyncWord:%u ms\n", params.syncWord);
+    printf("SyncWord:%u \n", params.syncWord);
     printf("interval:%u ms\n", params.interval);
     printf("Mode: ");
     switch (params.mode) {
@@ -138,7 +138,7 @@ int16_t hw_set_radio_params(radio_params_t &params)
 void hw_get_radio_params(radio_params_t &params)
 {
     params.bandwidth = 62.5;
-    params.freq = 868.0;
+    params.freq = RADIO_DEFAULT_FREQUENCY;
     params.cr = 5;
     params.isRunning = false;
     params.mode = RADIO_DISABLE;
@@ -262,7 +262,11 @@ void hw_get_radio_rx(radio_rx_params_t &params)
 
 static const float bandwidth_list[] = {41.7, 62.5, 125.0, 250.0, 500.0};
 static const float power_level_list[] = {2, 5, 10, 12, 17, 20, 22};
+#ifdef RADIO_FIXED_FREQUENCY
+static const float freq_list[] = {RADIO_FIXED_FREQUENCY};
+#else
 static const float freq_list[] = {433.0, 470.0, 842.0, 850, 868.0, 915.0, 923.0, 945.0};
+#endif
 
 uint16_t radio_get_freq_length()
 {
@@ -281,21 +285,24 @@ uint16_t radio_get_tx_power_length()
 
 const char *radio_get_freq_list()
 {
+#ifdef RADIO_FIXED_FREQUENCY
+    return RADIO_FIXED_FREQUENCY_STRING;
+#else
     return "433MHz\n""470MHz\n""842MHZ\n""850MHZ\n""868MHz\n""915MHz\n""923MHz\n""945MHz";
+#endif
 }
 
 float radio_get_freq_from_index(uint8_t index)
 {
-
     if (index > radio_get_freq_length()) {
-        return 868.0;
+        return RADIO_DEFAULT_FREQUENCY;
     }
     return freq_list[index];
 }
 
-const char *radio_get_bandwidth_list()
+const char *radio_get_bandwidth_list(bool high_freq)
 {
-    return "41.7\n""62.5\n""\n""125KHz\n""250KHz\n""500KHz";
+    return "41.7\n""62.5\n""125KHz\n""250KHz\n""500KHz";
 }
 
 float radio_get_bandwidth_from_index(uint8_t index)
@@ -306,7 +313,7 @@ float radio_get_bandwidth_from_index(uint8_t index)
     return bandwidth_list[index];
 }
 
-const char *radio_get_tx_power_list()
+const char *radio_get_tx_power_list(bool high_freq)
 {
     return  "2dBm\n""5dBm\n""10dBm\n""12dBm\n""17dBm\n""20dBm\n""22dBm";
 }

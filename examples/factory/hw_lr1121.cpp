@@ -11,6 +11,10 @@
 
 #ifdef ARDUINO_LILYGO_LORA_LR1121
 
+
+static bool _high_freq = false;
+
+#ifdef ARDUINO
 #include <LilyGoLib.h>
 
 static EventGroupHandle_t radioEvent = NULL;
@@ -37,6 +41,8 @@ void hw_radio_begin()
     radio.setPacketSentAction(hw_radio_isr);
 }
 
+#endif /*ARDUINO*/
+
 int16_t hw_set_radio_params(radio_params_t &params)
 {
     printf("Set radio params:\n");
@@ -46,7 +52,7 @@ int16_t hw_set_radio_params(radio_params_t &params)
     printf("interval:%u ms\n", params.interval);
     printf("CR:%u ms\n", params.cr);
     printf("SF:%u ms\n", params.sf);
-    printf("SyncWord:%u ms\n", params.syncWord);
+    printf("SyncWord:%u \n", params.syncWord);
     printf("interval:%u ms\n", params.interval);
     printf("Mode: ");
     switch (params.mode) {
@@ -64,6 +70,11 @@ int16_t hw_set_radio_params(radio_params_t &params)
         break;
     default:
         break;
+    }
+    if (params.freq > 960.0) {
+        _high_freq = true;
+    } else {
+        _high_freq = false;
     }
 
 #ifdef ARDUINO
@@ -132,7 +143,7 @@ int16_t hw_set_radio_params(radio_params_t &params)
 void hw_get_radio_params(radio_params_t &params)
 {
     params.bandwidth = 125.0;
-    params.freq = 868.0;
+    params.freq = RADIO_DEFAULT_FREQUENCY;
     params.cr = 5;
     params.isRunning = false;
     params.mode = RADIO_DISABLE;
@@ -252,10 +263,21 @@ void hw_get_radio_rx(radio_rx_params_t &params)
     params.length = 0;
 #endif
 }
+#ifdef RADIO_FIXED_FREQUENCY
+static const float freq_list[] = {RADIO_FIXED_FREQUENCY,
+                                  2400.0, 2410.0, 2420.0, 2430.0, 2440.0, 2450.0, 2460.0, 2470.0, 2480.0, 2490.0, 2500.0
+                                 };
+#else
+static const float freq_list[] = {433.0, 470.0, 842.0, 850, 868.0, 915.0, 923.0, 945.0,
+                                  2400.0, 2410.0, 2420.0, 2430.0, 2440.0, 2450.0, 2460.0, 2470.0, 2480.0, 2490.0, 2500.0
+                                 };
+#endif
 
-static const float freq_list[] = {433.0, 470.0, 842.0, 850, 868.0, 915.0, 923.0, 945.0, 2400.0, 2425.0, 2450.0};
 static const float bandwidth_list[] = {62.5, 125.0, 250.0, 500.0};
+static const float bandwidth_high_freq_list[] = {203.125, 406.25, 812.5};
+
 static const float power_level_list[] = {2, 5, 10, 12, 17, 20, 22};
+static const float power_level_high_freq_list[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13};
 
 uint16_t radio_get_freq_length()
 {
@@ -264,52 +286,82 @@ uint16_t radio_get_freq_length()
 
 uint16_t radio_get_bandwidth_length()
 {
+    if (_high_freq) {
+        return (sizeof(bandwidth_high_freq_list) / sizeof(bandwidth_high_freq_list[0]));
+    }
     return (sizeof(bandwidth_list) / sizeof(bandwidth_list[0]));
 }
 
 uint16_t radio_get_tx_power_length()
 {
+    if (_high_freq) {
+        return (sizeof(power_level_high_freq_list) / sizeof(power_level_high_freq_list[0]));
+    }
     return (sizeof(power_level_list) / sizeof(power_level_list[0]));
 }
 
-
 const char *radio_get_freq_list()
 {
-
-    return "433MHz\n""470MHz\n""842MHZ\n""850MHZ\n""868MHz\n""915MHz\n""923MHz\n""945MHz\n2400MHZ\n2425MHZ\n2450MHZ";
+#ifdef RADIO_FIXED_FREQUENCY
+    return RADIO_FIXED_FREQUENCY_STRING"\n2400MHz\n""2410MHz\n""2420MHz\n""2430MHz\n""2440MHz\n""2450MHz\n""2460MHz\n""2470MHz\n""2480MHz\n""2490MHz\n""2500MHz";
+#else
+    return "433MHz\n""470MHz\n""842MHZ\n""850MHZ\n""868MHz\n""915MHz\n""923MHz\n""945MHz\n"
+           "2400MHz\n""2410MHz\n""2420MHz\n""2430MHz\n""2440MHz\n""2450MHz\n""2460MHz\n""2470MHz\n""2480MHz\n""2490MHz\n""2500MHz";
+#endif
 }
 
 float radio_get_freq_from_index(uint8_t index)
 {
-
     if (index > radio_get_freq_length()) {
-        return 868.0;
+        _high_freq = false;
+        return RADIO_DEFAULT_FREQUENCY;
     }
     return freq_list[index];
 }
 
-const char *radio_get_bandwidth_list()
+const char *radio_get_bandwidth_list(bool high_freq)
 {
-    return "62.5\n""125KHz\n""250KHz\n""500KHz";
+    _high_freq = high_freq;
+    if (high_freq) {
+        return "203.125KHz\n""406.25KHz\n""812.5KHz";
+    } else {
+        return "62.5KHz\n""125KHz\n""250KHz\n""500KHz";
+    }
+}
+
+const char *radio_get_tx_power_list(bool high_freq)
+{
+    _high_freq = high_freq;
+    if (high_freq) {
+        return "0dBm\n""1dBm\n""2dBm\n""3dBm\n""4dBm\n""5dBm\n""6dBm\n""7dBm\n""8dBm\n""9dBm\n""10dBm\n""11dBm\n""12dBm\n""13dBm";
+    }
+    return  "2dBm\n""5dBm\n""10dBm\n""12dBm\n""17dBm\n""20dBm\n""22dBm";
 }
 
 float radio_get_bandwidth_from_index(uint8_t index)
 {
-    if (index > radio_get_bandwidth_length()) {
-        return 125.0;
+    if (_high_freq) {
+        if (index > (sizeof(bandwidth_high_freq_list) / sizeof(bandwidth_high_freq_list[0]))) {
+            index = 0;
+        }
+        return bandwidth_high_freq_list[index];
+    }
+    if (index > (sizeof(bandwidth_list) / sizeof(bandwidth_list[0]))) {
+        index = 0;
     }
     return bandwidth_list[index];
 }
 
-const char *radio_get_tx_power_list()
-{
-    return  "2dBm\n""5dBm\n""10dBm\n""12dBm\n""17dBm\n""20dBm\n""22dBm";
-}
-
 float radio_get_tx_power_from_index(uint8_t index)
 {
-    if (index > radio_get_tx_power_length()) {
-        return 22;
+    if (_high_freq) {
+        if (index > (sizeof(power_level_high_freq_list) / sizeof(power_level_high_freq_list[0]))) {
+            index =  13;
+        }
+        return power_level_high_freq_list[index];
+    }
+    if (index > (sizeof(power_level_list) / sizeof(power_level_list[0]))) {
+        index =  6;
     }
     return power_level_list[index];
 }

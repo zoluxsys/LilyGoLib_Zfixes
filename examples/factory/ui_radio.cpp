@@ -8,21 +8,20 @@
  */
 #include "ui_define.h"
 
-// #define RADIO_FREQUENCY_LIST    "433MHz\n""470MHz\n""842MHZ\n""850MHZ\n""868MHz\n""915MHz\n""923MHz\n""945MHz"
-// #define RADIO_BANDWIDTH_LIST    "41.7\n""62.5\n""\n""125KHz\n""250KHz\n""500KHz"
-// #define RADIO_TX_POWER_LIST     "2dBm\n""5dBm\n""10dBm\n""12dBm\n""17dBm\n""20dBm\n""22dBm"
+
 #define RADIO_INTERVAL_LIST     "100ms\n""200ms\n""500ms\n""1000ms\n""2000ms\n""3000ms"
 #define RADIO_MODE_LIST         "Disable\n""TX Mode\n""RX Mode\n""TxContinuousWave"
 #define RADIO_SF_LIST           "5\n""6\n""7\n""8\n""9\n""10\n""11\n""12"
 #define RADIO_CR_LIST           "5\n""6\n""7\n""8"
 
-// static const float radio_freq_args_list[] = {433.0, 470.0, 842.0, 850, 868.0, 915.0, 923.0, 945.0};
-// static const float radio_bandwidth_args_list[] = {41.7, 62.5, 125.0, 250.0, 500.0};
-// static const float radio_power_args_list[] = {2, 5, 10, 12, 17, 20, 22};
 static const uint16_t radio_interval_args_list[] = {100, 200, 500, 1000, 2000, 3000};
 static const uint8_t radio_sf_args_list[] = {5, 6, 7, 8, 9, 10, 11, 12};
 static const uint8_t radio_cr_args_list[] = {5, 6, 7, 8};
 
+static bool _high_freq = false;
+static lv_obj_t *bandwidth_dd = nullptr;
+static lv_obj_t *frequency_dd = nullptr;
+static lv_obj_t *power_level_dd = nullptr;
 static lv_obj_t *menu = NULL;
 static lv_obj_t *radio_msg_label = NULL;
 static radio_params_t radio_params_copy;
@@ -69,6 +68,25 @@ static void _ui_radio_obj_event(lv_event_t *e)
     case 'f':   //*frequency
         radio_params_copy.freq = radio_get_freq_from_index(selected);
         printf("set freq:%.2f\n", radio_params_copy.freq);
+        if (radio_params_copy.freq > 960.0) {
+            if (!_high_freq) {
+                lv_dropdown_set_options(power_level_dd, radio_get_tx_power_list(true));
+                lv_dropdown_set_options(bandwidth_dd, radio_get_bandwidth_list(true));
+
+                radio_params_copy.bandwidth = radio_get_bandwidth_from_index(0);
+                radio_params_copy.power = radio_get_tx_power_from_index(0);
+                _high_freq = true;
+            }
+
+        } else {
+            if (_high_freq) {
+                lv_dropdown_set_options(power_level_dd, radio_get_tx_power_list(false));
+                lv_dropdown_set_options(bandwidth_dd, radio_get_bandwidth_list(false));
+                radio_params_copy.bandwidth = radio_get_bandwidth_from_index(0);
+                radio_params_copy.power = radio_get_tx_power_from_index(0);
+                _high_freq = false;
+            }
+        }
         break;
     case 'w':   //*bandwidth
         radio_params_copy.bandwidth = radio_get_bandwidth_from_index(selected);
@@ -103,6 +121,7 @@ static void _ui_radio_obj_event(lv_event_t *e)
             if (timer) {
                 lv_timer_pause(timer);
             }
+            ui_set_msg_label("DISABLE");
             break;
         case RADIO_TX:
             if (timer) {
@@ -161,6 +180,7 @@ static lv_obj_t *create_bandwidth_dropdown(lv_obj_t *parent)
         }
         index++;
     }
+    bandwidth_dd = dd;
     return dd;
 }
 
@@ -179,8 +199,11 @@ static lv_obj_t *create_tx_power_dropdown(lv_obj_t *parent)
         }
         index++;
     }
+    power_level_dd = dd;
     return dd;
 }
+
+
 
 static lv_obj_t *create_tx_interval_dropdown(lv_obj_t *parent)
 {
@@ -210,7 +233,7 @@ static lv_obj_t *create_mode_dropdown(lv_obj_t *parent)
     switch (radio_params_copy.mode) {
     case RADIO_DISABLE:
         lv_dropdown_set_selected(dd, 0);
-        ui_set_msg_label( "RADIO DISABLE");
+        ui_set_msg_label("DISABLE");
         break;
     case RADIO_TX:
         lv_dropdown_set_selected(dd, 1);
@@ -271,6 +294,7 @@ static lv_obj_t *create_state_textarea(lv_obj_t *parent)
     lv_textarea_set_cursor_click_pos(radio_msg_label, false);
     lv_textarea_set_one_line(radio_msg_label, true);
     lv_obj_set_scrollbar_mode(radio_msg_label, LV_SCROLLBAR_MODE_OFF);
+    lv_textarea_set_text(radio_msg_label, "DISABLE");
 
     lv_obj_add_event_cb(radio_msg_label, [](lv_event_t *e) {
         lv_event_code_t code = lv_event_get_code(e);
@@ -287,8 +311,9 @@ static lv_obj_t *create_state_textarea(lv_obj_t *parent)
 static void ui_set_msg_label(const char *msg)
 {
     if (radio_msg_label) {
-        lv_textarea_set_text(radio_msg_label, msg);
-        lv_textarea_set_cursor_pos(radio_msg_label, 0);
+        if (strcmp(lv_textarea_get_text(radio_msg_label), msg) != 0) {
+            lv_textarea_set_text(radio_msg_label, msg);
+        }
     }
 }
 
@@ -410,7 +435,7 @@ void ui_radio_enter(lv_obj_t *parent)
     lv_obj_set_size(cont, lv_pct(100), 80);
 
     int w =  lv_disp_get_hor_res(NULL) / 5;
-    lv_obj_t *quit_btn = create_radius_button(cont, LV_SYMBOL_LEFT, [](lv_event_t*e) {
+    lv_obj_t *quit_btn = create_radius_button(cont, LV_SYMBOL_LEFT, [](lv_event_t *e) {
         lv_obj_send_event(lv_menu_get_main_header_back_button(menu), LV_EVENT_CLICKED, NULL);
     }, NULL);
     lv_obj_remove_flag(quit_btn, LV_OBJ_FLAG_FLOATING);
