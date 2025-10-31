@@ -106,7 +106,7 @@ void ui_gps_enter(lv_obj_t *parent)
     lv_label_set_text_fmt(label, "%.06f", param.lng);
     label_gps.lng = label;
 
-    btn = lv_list_add_btn(list1, LV_SYMBOL_GPS, "datetime");
+    btn = lv_list_add_btn(list1, LV_SYMBOL_GPS, "Datetime");
     label = lv_label_create(btn);
     char buffer[128];
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &param.datetime);
