@@ -21,3 +21,7 @@
 ### `3` GPS AssistNow Usage Guide
 
 - 🔧 **[GPS AssistNow Usage Guide](./docs/assistNow/assistNow.md)**
+
+### `4` Unable to flash again
+
+- ⚠️ **[Flash Steps Guide](./firmware/README.md)**

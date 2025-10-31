@@ -73,6 +73,7 @@ Please confirm that it is running normally before trying to update to the latest
 > \[!IMPORTANT]
 >
 > 🤖 USB ports keep popping in and out?
+> If you have installed a third-party firmware such as meshtastic, please be sure to follow these steps to update the firmware, regardless of whether it is meshtastic or lilygo factory firmware.
 >
 > Download mode is only required when the program is not allowed to upload the sketch. This step is not required under normal circumstances.
 >

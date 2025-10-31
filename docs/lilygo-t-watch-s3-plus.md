@@ -73,6 +73,7 @@ Please confirm that it is running normally before trying to update to the latest
 > \[!IMPORTANT]
 >
 > Download mode is only required when the program is not allowed to upload the sketch. This step is not required under normal circumstances.
+> If you have installed a third-party firmware such as meshtastic, please be sure to follow these steps to update the firmware, regardless of whether it is meshtastic or lilygo factory firmware.
 >
 > 🤖 T-Watch-S3-Plus the BOOT button and RST button have been reserved on the edge of the shell. Please follow the steps below to put the device into download mode.
 >
