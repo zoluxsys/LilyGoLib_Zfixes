@@ -10,6 +10,7 @@
 #include <math.h>
 #include <lvgl.h>
 
+
 #define NVS_NAME    "pager"
 static user_setting_params_t user_setting;
 
@@ -24,6 +25,10 @@ typedef struct _device_const_var {
 
 #ifdef ARDUINO
 
+#include "dsps_fft2r.h"
+#include "dsps_wind_hann.h"
+#include "Esp.h"
+
 #define  CONFIG_BLE_KEYBOARD
 #include <LilyGoLib.h>
 #include <esp_mac.h>
@@ -34,6 +39,7 @@ typedef struct _device_const_var {
 #include "audio/keyboard_audio.h"
 #include "driver/rtc_io.h"
 #include "app_nfc.h"
+#include <FFat.h>
 
 static Preferences           prefs;
 static TaskHandle_t          recTaskHandle;
@@ -50,7 +56,6 @@ static bool                  pps_trigger = false;
 #if defined(HAS_SD_CARD_SOCKET)
 #define FILESYSTEM                  SD
 #else
-#include <FFat.h>
 #define FILESYSTEM                  FFat
 #endif
 
@@ -133,16 +138,49 @@ static const char *hw_devices[] = {
 #endif
 
 #ifdef USING_EXTERN_NRF2401
-    "NRF2401",
+    "NRF2401 Sub 1G",
+#else
+    "",
 #endif
+
+#ifdef USING_SI473X_RADIO
+    "SI4735 Radio",
+#endif
+
+#ifdef USING_BME280
+    "BME280 Pressure & Temperature",
+#endif
+
+#ifdef USING_MAG_QMC5883
+    "QMC5883P Magnetometer",
+#endif
+
 };
 
 static bool sync_date_time = false;
 
-#ifdef USING_ST25R3916
+#if  defined(USING_ST25R3916) && defined(ARDUINO)
 static void nrf_notify_callback();
-static void ndef_event_callback(ndefTypeId id, void*data);
+static void ndef_event_callback(ndefTypeId id, void *data);
 #endif
+
+extern void hw_nrf24_begin();
+extern void hw_radio_begin();
+
+
+#ifndef ARDUINO
+int random(int min, int max)
+{
+    if (min > max) {
+        int temp = min;
+        min = max;
+        max = temp;
+    }
+    int range = max - min + 1;
+    return rand() % range + min;
+}
+#endif
+
 
 #ifdef ARDUINO
 
@@ -205,9 +243,9 @@ static bool playMP3(uint8_t *src, size_t src_len)
 #elif defined(USING_AUDIO_CODEC)
             if (!codec_begin) {
                 codec_begin = true;
-                Serial.printf("Set sample rate:%d bitsPerSample:%d\n", frameInfo.samprate, frameInfo.bitsPerSample);
+                // Serial.printf("Set sample rate:%d bitsPerSample:%d\n", frameInfo.samprate, frameInfo.bitsPerSample);
                 int ret = instance.codec.open(frameInfo.bitsPerSample, frameInfo.nChans, frameInfo.samprate);
-                Serial.printf("esp_codec_dev_open:0x%X\n", ret);
+                // Serial.printf("esp_codec_dev_open:0x%X\n", ret);
             }
             int ret = instance.codec.write((uint8_t *)outBuf, (size_t)((frameInfo.bitsPerSample / 8) * frameInfo.outputSamps));
             if (ret != 0) {
@@ -221,7 +259,7 @@ WAIT:
                                  , pdFALSE, pdFALSE, portMAX_DELAY);
 
         if (eventBits & PLAYER_END) {
-            printf("TASK END\n");
+            // printf("TASK END\n");
             break;
         }
 
@@ -238,33 +276,65 @@ WAIT:
     return true;
 }
 
-static void hw_sd_paly(const char *filename)
+static void hw_sd_play(audio_source_type_t source, const char *filename)
 {
     bool isMP3 = String(filename).endsWith(".mp3");
-    // T-Watch-S3-Ultra or T-LoRa-Pager is SPI bus-shared, lock the SPI bus before use
-    instance.lockSPI();
+    bool lock = false;
+
     String str = "/" + String(filename);
-    File f = FILESYSTEM.open(str);
-    if (!f) {
-        Serial.printf("Open %s failed!\n", filename);
-        // T-Watch-S3-Ultra or T-LoRa-Pager is SPI bus-shared and releases the bus after use.
-        instance.unlockSPI();
-        return;
+    File f;
+
+    // Serial.printf("Playing file: %s source:%d\n", str.c_str(), source);
+    if (source == AUDIO_SOURCE_SDCARD) {
+        Serial.printf("Open from SD: %s\n", str.c_str());
+        // T-Watch-S3-Ultra or T-LoRa-Pager is SPI bus-shared, lock the SPI bus before use
+        instance.lockSPI();
+        f = SD.open(str);
+        if (f) {
+            lock = true;
+        } else {
+            Serial.printf("SD Open %s failed!\n", filename);
+            // T-Watch-S3-Ultra or T-LoRa-Pager is SPI bus-shared and releases the bus after use.
+            instance.unlockSPI();
+            return;
+        }
+    } else {
+        Serial.printf("Open from FFat: %s\n", str.c_str());
+        f = FFat.open(str);
+        if (!f) {
+            Serial.printf("FFat Open %s failed!\n", filename);
+            return;
+        }
     }
+
     size_t file_size = f.size();
+    if (file_size == 0) {
+        Serial.printf("File %s size is 0!\n", filename);
+        f.close();
+        if (lock) {
+            // T-Watch-S3-Ultra or T-LoRa-Pager is SPI bus-shared and releases the bus after use.
+            instance.unlockSPI();
+        }
+        return ;
+    }
     uint8_t *buf  = (uint8_t *)ps_malloc(file_size);
     if (!buf) {
         Serial.println("ps malloc failed!");
         f.close();
-        // T-Watch-S3-Ultra or T-LoRa-Pager is SPI bus-shared and releases the bus after use.
-        instance.unlockSPI();
+        if (lock) {
+            // T-Watch-S3-Ultra or T-LoRa-Pager is SPI bus-shared and releases the bus after use.
+            instance.unlockSPI();
+        }
         return ;
     }
+
     size_t read_size =  f.readBytes((char *)buf, file_size);
     f.close();
 
     // SPI bus-shared and releases the bus after use.
-    instance.unlockSPI();  //Release lock
+    if (lock) {
+        instance.unlockSPI();  //Release lock
+    }
 
     if (read_size == file_size) {
         Serial.print("Playing ");
@@ -287,11 +357,12 @@ static void playerTask(void *args)
         }
         switch (params.event) {
         case APP_EVENT_PLAY:
-            hw_sd_paly(params.filename);
+            Serial.printf("Event: filename:%s source:%d\n", params.filename, params.source_type);
+            hw_sd_play(params.source_type, params.filename);
             break;
         case APP_EVENT_PLAY_KEY:
-            Serial.println("APP_EVENT_PLAY_KEY");
-            playMP3((uint8_t* )keyboard_audio, keyboard_audio_mp3_len);
+            // Serial.println("APP_EVENT_PLAY_KEY");
+            playMP3((uint8_t * )keyboard_audio, keyboard_audio_mp3_len);
             break;
         case APP_EVENT_RECOVER:
             break;
@@ -306,44 +377,116 @@ static void playerTask(void *args)
 #endif
 
 #ifdef ARDUINO
-#define MIC_PRESSURE
 
-#ifdef MIC_PRESSURE
+static int16_t i2s_buffer[FFT_SIZE * 2];
+static float fft_input[FFT_SIZE * 2] __attribute__((aligned(16)));
+static float window[FFT_SIZE] __attribute__((aligned(16)));
+static int16_t left_channel[FFT_SIZE];
+static int16_t right_channel[FFT_SIZE];
+static int read_count = 0;
 
-static int16_t pdm_to_pcm(int32_t pdm_sample)
+static void process_channel_fft(int16_t *channel_data, float *bands, float freq_per_bin)
 {
-    return (int16_t)(pdm_sample >> 16);
+    for (int i = 0; i < FFT_SIZE; i++) {
+        fft_input[2 * i] = (float)channel_data[i] * 3.0f / 32768.0f * window[i];
+        fft_input[2 * i + 1] = 0;
+    }
+
+    dsps_fft2r_fc32_aes3(fft_input, FFT_SIZE);
+    dsps_bit_rev_fc32(fft_input, FFT_SIZE);
+    dsps_cplx2reC_fc32(fft_input, FFT_SIZE);
+
+    float magnitudes[FFT_SIZE / 2];
+    for (int i = 0; i < FFT_SIZE / 2; i++) {
+        float real = fft_input[2 * i];
+        float imag = fft_input[2 * i + 1];
+        magnitudes[i] = sqrt(real * real + imag * imag);
+
+        if (magnitudes[i] < 0.00001) magnitudes[i] = 0.00001;
+        magnitudes[i] = 20 * log10(magnitudes[i]);
+        magnitudes[i] = (magnitudes[i] + 40) / 40;
+        magnitudes[i] = constrain(magnitudes[i], 0, 1);
+    }
+
+    int bin_count = (FFT_SIZE / 2) / FREQ_BANDS;
+    memset(bands, 0, FREQ_BANDS * sizeof(float));
+
+    for (int band = 0; band < FREQ_BANDS; band++) {
+        int start_bin = band * bin_count;
+        int end_bin = start_bin + bin_count;
+        if (end_bin > FFT_SIZE / 2) end_bin = FFT_SIZE / 2;
+
+        float sum = 0;
+        int count = 0;
+        for (int bin = start_bin; bin < end_bin; bin++) {
+            sum += magnitudes[bin];
+            count++;
+        }
+
+        if (count > 0) {
+            bands[band] = sum / count;
+        }
+    }
 }
 
-static float pcm_to_pressure(int16_t pcm_sample)
-{
-    float dBFS = 20 * log10(abs(pcm_sample) / 32768.0);
-    float SPL = dBFS + (-22.0);
-    float pressure = pow(10, SPL / 20.0) * 20;
-    return pressure;
-}
-
-static float map_pressure(float pressure)
-{
-    float min_pressure = 0.01;
-    float max_pressure = 1;
-    float mapped_pressure = (pressure - min_pressure) / (max_pressure - min_pressure) * 100.0;
-    if (mapped_pressure < 0) mapped_pressure = 0;
-    if (mapped_pressure > 100) mapped_pressure = 100;
-    return mapped_pressure;
-}
-#endif  //MIC_PRESSURE
-
-#endif
 
 
-void hw_set_mic_start()
+
+
+#endif /*ARDUINO*/
+
+
+void hw_audio_get_fft_data(FFTData *fft_data)
 {
 #ifdef ARDUINO
+    float freq_per_bin = (float)SAMPLE_RATE / FFT_SIZE;
+
+#if defined(USING_PDM_MICROPHONE)
+    int32_t pdm_sample;
+    instance.mic.readBytes((char *)i2s_buffer, FFT_SIZE * 2 * sizeof(int16_t));
+#elif defined(USING_AUDIO_CODEC)
+    instance.codec.read((uint8_t *)i2s_buffer, FFT_SIZE * 2 * sizeof(int16_t));
+#endif
+
+    read_count++;
+    if (read_count % 10 == 0) {
+        Serial.printf("Left: %d, Right: %d\n", i2s_buffer[0], i2s_buffer[1]);
+    }
+
+    for (int i = 0; i < FFT_SIZE; i++) {
+        left_channel[i] = i2s_buffer[2 * i];
+        right_channel[i] = i2s_buffer[2 * i + 1];
+    }
+
+    process_channel_fft(left_channel, fft_data->left_bands, freq_per_bin);
+    process_channel_fft(right_channel, fft_data->right_bands, freq_per_bin);
+#endif /*ARDUINO*/
+}
+
+bool hw_set_mic_start()
+{
+#ifdef ARDUINO
+    int ret ;
+
 #ifdef USING_AUDIO_CODEC
-    instance.codec.open(16, 2, 16000);
-#endif
-#endif
+    ret = instance.codec.open(16, instance.getCodecInputChannels(), 16000);
+    if (ret < 0) {
+        log_e("Audio codec open failed:0x%X", ret);
+        return false;
+    }
+#endif /*USING_AUDIO_CODEC*/
+
+    ret = dsps_fft2r_init_fc32(NULL, FFT_SIZE);
+    if (ret != ESP_OK) {
+        log_e("fft init failed = %i\n", ret);
+        return false;
+    }
+
+    dsps_wind_hann_f32(window, FFT_SIZE);
+
+#endif /*ARDUINO*/
+
+    return true;
 }
 
 void hw_set_mic_stop()
@@ -352,67 +495,15 @@ void hw_set_mic_stop()
 #ifdef USING_AUDIO_CODEC
     instance.codec.close();
 #endif
-#endif
+    dsps_fft2r_deinit_fc32();
+#endif /*ARDUINO*/
 }
 
-#ifdef ARDUINO
-static uint8_t pencent = 0;
-static const float SENSITIVITY = 30.0;
-static const float V_REF = 3.3;
-static const int16_t MAX_16BIT = 32767;
-static const int SAMPLE_COUNT = 256;
-static int16_t samples[SAMPLE_COUNT];
-#endif
-
-int16_t hw_get_microphone_pressure_level()
-{
-#ifdef ARDUINO
-#ifdef MIC_PRESSURE
-#if defined(USING_PDM_MICROPHONE)
-    int32_t pdm_sample;
-    size_t bytes_read;
-    bytes_read = instance.mic.readBytes((char *)&pdm_sample, sizeof(pdm_sample));
-    if (bytes_read == sizeof(pdm_sample)) {
-        int16_t pcm_sample = pdm_to_pcm(pdm_sample);
-        float pressure = pcm_to_pressure(pcm_sample);
-        float mapped_pressure = map_pressure(pressure);
-        // Serial.printf("pcm_sample:%d pressure:%.2f mapped_pressure:%.2f\n", pcm_sample, pressure, mapped_pressure);
-        return (int16_t)mapped_pressure;
-    }
-    return 0;
-#elif defined(USING_AUDIO_CODEC)
-    if (instance.codec.read((uint8_t * )&samples, SAMPLE_COUNT * sizeof(int16_t)) == 0) {
-        float totalPressure = 0;
-        for (int i = 0; i < SAMPLE_COUNT; i++) {
-            float voltage = ((float)samples[i] / MAX_16BIT) * V_REF * 1000;
-            float pressure = voltage / SENSITIVITY;
-            totalPressure += pressure;
-        }
-        float averagePressure = totalPressure / SAMPLE_COUNT;
-        float minPressure = -0.01;
-        float maxPressure = 10;
-        float convertedValue = 0;
-        if (maxPressure > minPressure) {
-            convertedValue = ((averagePressure - minPressure) / (maxPressure - minPressure)) * 100;
-            if (convertedValue < 0) convertedValue = 0;
-            if (convertedValue > 100) convertedValue = 100;
-        }
-        pencent = convertedValue;
-        return pencent;
-    }
-    return 0;
-#endif
-#endif  //MIC_PRESSURE
-#else
-    return rand() % 100;
-#endif
-}
-
-extern void hw_nrf24_begin();
-extern void hw_radio_begin();
 
 
-#ifdef USING_ST25R3916
+
+
+#if  defined(USING_ST25R3916) && defined(ARDUINO)
 
 extern void ui_nfc_pop_up(wifi_conn_params_t &params);
 
@@ -422,7 +513,7 @@ static void nrf_notify_callback()
     hw_feedback();
 }
 
-static void ndef_event_callback(ndefTypeId id, void*data)
+static void ndef_event_callback(ndefTypeId id, void *data)
 {
     static ndefTypeRtdDeviceInfo   devInfoData;
     static ndefConstBuffer         bufAarString;
@@ -439,10 +530,10 @@ static void ndef_event_callback(ndefTypeId id, void*data)
         break;
     case NDEF_TYPE_RTD_TEXT:
         memcpy(&text, data, sizeof(ndefRtdText));
-        Serial.printf("LanguageCode:%s Sentence:%s\n", reinterpret_cast < const char * > (text.bufLanguageCode.buffer), reinterpret_cast < const char * > (text.bufSentence.buffer));
-        msg.concat("LanguageCode:");
+        Serial.printf("LanguageCode: %s\nSentence: %s\n", reinterpret_cast < const char * > (text.bufLanguageCode.buffer), reinterpret_cast < const char * > (text.bufSentence.buffer));
+        msg.concat("LanguageCode: ");
         msg.concat(reinterpret_cast < const char * > (text.bufLanguageCode.buffer));
-        msg.concat("Sentence:");
+        msg.concat("\nSentence: ");
         msg.concat(reinterpret_cast < const char * > (text.bufSentence.buffer));
         ui_msg_pop_up("NFC Text", msg.c_str());
         break;
@@ -457,14 +548,14 @@ static void ndef_event_callback(ndefTypeId id, void*data)
         break;
     case NDEF_TYPE_RTD_AAR:
         memcpy(&bufAarString, data, sizeof(ndefConstBuffer));
-        Serial.printf("NDEF_TYPE_RTD_AAR :%s\n", (char*)bufAarString.buffer);
+        Serial.printf("NDEF_TYPE_RTD_AAR :%s\n", (char *)bufAarString.buffer);
         break;
     case NDEF_TYPE_MEDIA:
         break;
     case NDEF_TYPE_MEDIA_VCARD:
         break;
     case NDEF_TYPE_MEDIA_WIFI: {
-        ndefTypeWifi * wifi = (ndefTypeWifi*)data;
+        ndefTypeWifi *wifi = (ndefTypeWifi *)data;
         params.ssid = std::string(reinterpret_cast < const char * > (wifi->bufNetworkSSID.buffer), wifi->bufNetworkSSID.length);
         params.password = std::string(reinterpret_cast < const char * > (wifi->bufNetworkKey.buffer), wifi->bufNetworkKey.length);
         Serial.printf("ssid:<%s> password:<%s>\n", params.ssid.c_str(), params.password.c_str());
@@ -475,8 +566,33 @@ static void ndef_event_callback(ndefTypeId id, void*data)
         break;
     }
 }
-#endif
+#endif  /*USING_ST25R3916*/
 
+
+
+bool hw_start_nfc_discovery()
+{
+#if  defined(USING_ST25R3916) && defined(ARDUINO)
+    instance.powerControl(POWER_NFC, true);
+    return beginNFC(nrf_notify_callback, ndef_event_callback);
+#else
+    return false;
+#endif
+}
+
+void hw_stop_nfc_discovery()
+{
+#if  defined(USING_ST25R3916) && defined(ARDUINO)
+    deinitNFC();
+    instance.powerControl(POWER_NFC, false);
+#endif
+}
+
+#ifdef ARDUINO_T_LORA_PAGER
+const uint8_t mic_gain = 10;
+#else
+const uint8_t mic_gain = 10;
+#endif
 
 
 void hw_init()
@@ -494,13 +610,13 @@ void hw_init()
 
 #ifdef USING_AUDIO_CODEC
     instance.codec.setVolume(100);
-    instance.codec.setGain(50.0);
+    instance.codec.setGain(mic_gain);
 #endif //USING_AUDIO_CODEC
 
 #ifdef USING_INPUT_DEV_KEYBOARD
     instance.attachKeyboardFeedback(true, 80);
 
-    instance.setFeedbackCallback([](void*args) {
+    instance.setFeedbackCallback([](void *args) {
 
         lv_indev_t *drv = (lv_indev_t *)args;
 
@@ -539,7 +655,7 @@ void hw_init()
         user_setting.brightness_level = 50;
         user_setting.keyboard_bl_level = 80;
         user_setting.disp_timeout_second = 30;
-        user_setting.charger_current = 1000;
+        user_setting.charger_current = DEVICE_CHARGE_CURRENT_RECOMMEND;
         user_setting.charger_enable = true;
         prefs.putBytes(NVS_NAME, &user_setting, sizeof(user_setting_params_t));
     }
@@ -550,9 +666,11 @@ void hw_init()
 
     hw_set_kb_backlight(user_setting.keyboard_bl_level);
 
-    instance.onEvent([](DeviceEvent_t event, void * user_data) {
-        log_d("ON EVENT PMU CLICK");
-    }, PMU_EVENT_KEY_CLICKED, NULL);
+    instance.onEvent([](DeviceEvent_t event, void *params, void *user_data) {
+        if (instance.getPMUEventType(params) == PMU_EVENT_KEY_CLICKED) {
+            log_d("ON EVENT PMU CLICK");
+        }
+    }, POWER_EVENT, NULL);
 
 
 #else
@@ -563,9 +681,9 @@ void hw_init()
     user_setting.charger_enable = true;
 #endif
 
-#ifdef USING_ST25R3916
-    beginNFC(nrf_notify_callback, ndef_event_callback);
-#endif
+    // #if  defined(USING_ST25R3916) && defined(ARDUINO)
+    //     beginNFC(nrf_notify_callback, ndef_event_callback);
+    // #endif
 
 }
 
@@ -644,11 +762,15 @@ void hw_get_date_time(string &param)
 {
 #ifdef ARDUINO
     struct tm timeinfo;
-    instance.rtc.getDateTime(&timeinfo);
-    char datetime[128] = {0};
-    snprintf(datetime, 128, "%04d/%02d/%02d %02d:%02d:%02d", timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday,
-             timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-    param  = datetime;
+    if (hw_get_device_online() & HW_RTC_ONLINE) {
+        instance.rtc.getDateTime(&timeinfo);
+        char datetime[128] = {0};
+        snprintf(datetime, 128, "%04d/%02d/%02d %02d:%02d:%02d", timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday,
+                 timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+        param  = datetime;
+    } else {
+        param = "2000/01/01 00:00:00";
+    }
 #else
     time_t now;
     struct tm *timeinfo;
@@ -668,7 +790,11 @@ void hw_get_date_time(string &param)
 void hw_get_date_time(struct tm &timeinfo)
 {
 #ifdef ARDUINO
-    instance.rtc.getDateTime(&timeinfo);
+    if (hw_get_device_online() & HW_RTC_ONLINE) {
+        instance.rtc.getDateTime(&timeinfo);
+    } else {
+        timeinfo = {0};
+    }
 #else
     time_t now;
     time(&now);
@@ -824,9 +950,11 @@ bool hw_get_gps_info(gps_params_t &param)
             utc_tm.tm_hour = instance.gps.time.hour();
             utc_tm.tm_min = instance.gps.time.minute();
             utc_tm.tm_sec = instance.gps.time.second();
-            instance.rtc.convertUtcToTimezone(utc_tm, GMT_OFFSET_SECOND);
-            instance.rtc.setDateTime(utc_tm);
-            instance.rtc.hwClockRead();
+            if (hw_get_device_online() & HW_RTC_ONLINE) {
+                instance.rtc.convertUtcToTimezone(utc_tm, GMT_OFFSET_SECOND);
+                instance.rtc.setDateTime(utc_tm);
+                instance.rtc.hwClockRead();
+            }
         }
         param.datetime.tm_year = instance.gps.date.year() - 1900;
         param.datetime.tm_mon = instance.gps.date.month() - 1;
@@ -985,59 +1113,73 @@ bool hw_get_wifi_connected()
     return false;
 }
 
-
-
-void hw_sd_list(vector < string > &list, const char *dirname, uint8_t levels)
+#ifdef ARDUINO
+static void listDir(vector < AudioParams_t > &list, fs::FS &fs, const char * dirname, uint8_t levels, audio_source_type_t source_type)
 {
-#if defined(ARDUINO)
+    Serial.printf("Listing directory: %s\r\n", dirname);
 
-    instance.lockSPI();
-
-#if defined(HAS_SD_CARD_SOCKET)
-    instance.installSD();
-#endif
-
-
-    Serial.printf("Listing directory: %s\n", "/");
-    File root = FILESYSTEM.open(dirname);
+    File root = fs.open(dirname);
     if (!root) {
-        Serial.println("Failed to open directory");
-        instance.unlockSPI();
+        Serial.println("- failed to open directory");
         return;
     }
     if (!root.isDirectory()) {
-        Serial.println("Not a directory");
-        instance.unlockSPI();
+        Serial.println(" - not a directory");
         return;
     }
+
     File file = root.openNextFile();
     while (file) {
         if (file.isDirectory()) {
             Serial.print("  DIR : ");
             Serial.println(file.name());
             if (levels) {
-                hw_sd_list(list, file.path(), levels - 1);
+                std::string next_dir = dirname;
+                if (next_dir != "/") next_dir += "/";
+                next_dir += file.name();
+                listDir(list, fs, next_dir.c_str(), levels - 1, source_type);
             }
         } else {
             String filename = file.name();
             if (filename.endsWith(".mp3") || filename.endsWith(".wav")) {
-                list.push_back(filename.c_str());
+                list.push_back({source_type, filename.c_str()});
             }
+
             Serial.print("  FILE: ");
             Serial.print(file.name());
-            Serial.print("  SIZE: ");
+            Serial.print("\tSIZE: ");
             Serial.println(file.size());
         }
+        file.close();
         file = root.openNextFile();
     }
-
-    instance.unlockSPI();
-
-#else
-    list.push_back("/abc.mp3");
-    list.push_back("/ccc.mp3");
-    list.push_back("/dddd.mp3");
+    root.close();
+}
 #endif
+
+void hw_fat_list(vector < AudioParams_t > &list, const char *dirname, uint8_t levels)
+{
+#if defined(ARDUINO)
+    Serial.printf("FFAT Listing directory: %s\n", dirname);
+    listDir(list, FFat, dirname, levels, AUDIO_SOURCE_FATFS);
+#endif
+}
+
+bool hw_sd_list(vector < AudioParams_t > &list, const char *dirname, uint8_t levels)
+{
+#if defined(ARDUINO) && defined(HAS_SD_CARD_SOCKET)
+    instance.lockSPI();
+    if (instance.installSD()) {
+        Serial.println("SD Card mount success.");
+    } else {
+        Serial.println("SD Card mount failed.");
+        instance.unlockSPI();
+        return false;
+    }
+    listDir(list, SD, dirname, levels, AUDIO_SOURCE_SDCARD);
+    instance.unlockSPI();
+#endif
+    return true;
 }
 
 void hw_mount_sd()
@@ -1047,30 +1189,48 @@ void hw_mount_sd()
 #endif
 }
 
-void hw_get_sd_music(vector < string > &list)
+void hw_get_filesystem_music(vector < AudioParams_t > &list)
 {
     list.clear();
+
+#if defined(ARDUINO)
+
+#if defined(HAS_SD_CARD_SOCKET)
+    Serial.println("\n================== SD Music List ==================");
     hw_sd_list(list, "/", 0);
+#endif
+
+    Serial.println("\n================== FFat Music List ==================");
+    hw_fat_list(list, "/", 0);
+
+#else
+    list.push_back({AUDIO_SOURCE_FATFS, "/abc.mp3"});
+    list.push_back({AUDIO_SOURCE_FATFS, "/ccc.mp3"});
+    list.push_back({AUDIO_SOURCE_FATFS, "/ddd.mp3"});
+#endif
 }
 
-
-void hw_set_sd_music_play(const char *filename)
+void hw_set_sd_music_play(audio_source_type_t source_type, const char *filename)
 {
     audio_params_t params = {
         .event = APP_EVENT_PLAY,
-        .filename = filename
+        .filename = filename,
+        .source_type = source_type
     };
-    printf("play : %s\n", filename);
+    printf("hw_set_sd_music_play : %s source_type:%d\n", filename, source_type);
 #ifdef ARDUINO
     xEventGroupClearBits(playerEvent, PLAYER_PLAY | PLAYER_END);
     if (hw_player_running()) {
         xEventGroupSetBits(playerEvent, PLAYER_END);
+        Serial.println("Wait hw_player_running stop...");
         while (hw_player_running()) {
             delay(2);
         }
+        Serial.println("hw_player_running stopped.");
     }
     xEventGroupSetBits(playerEvent, PLAYER_PLAY);
     xQueueSend(playerQueue, &params, portMAX_DELAY);
+    Serial.println("hw_set_sd_music_play send done\n");
 #endif
 }
 
@@ -1109,6 +1269,13 @@ bool hw_player_running()
     return xEventGroupGetBits(playerEvent) & PLAYER_RUNNING;
 #endif
     return true;
+}
+
+void hw_set_volume(uint8_t volume)
+{
+#if defined(ARDUINO) && defined(USING_AUDIO_CODEC)
+    instance.codec.setVolume(volume);
+#endif //USING_AUDIO_CODEC
 }
 
 void hw_shutdown()
@@ -1623,17 +1790,13 @@ void hw_feedback()
 #endif
 }
 
-extern void reinstall_nfc();
-
-
 void hw_low_power_loop()
 {
 #ifdef ARDUINO
     instance.lightSleep();
-    // reinstall_nfc();
-#ifdef USING_ST25R3916
-    beginNFC(nrf_notify_callback, ndef_event_callback);
-#endif
+    // #ifdef USING_ST25R3916
+    //     beginNFC(nrf_notify_callback, ndef_event_callback);
+    // #endif
 #endif
 }
 
@@ -1703,20 +1866,33 @@ void hw_enable_input_devices()
 #endif
 }
 
+void hw_enable_keyboard()
+{
+#if defined(ARDUINO) && defined(ARDUINO_T_DECK_V2)
+    instance.enableKeyboard();
+#endif
+}
+
+void hw_disable_keyboard()
+{
+#if defined(ARDUINO) && defined(ARDUINO_T_DECK_V2)
+    instance.disableKeyboard();
+#endif
+}
+
+
 void hw_flush_keyboard()
 {
 #if defined(ARDUINO) && defined(USING_INPUT_DEV_KEYBOARD)
-    instance.kb.flush();
+    if (hw_get_device_online() & HW_KEYBOARD_ONLINE) {
+        instance.kb.flush();
+    }
 #endif
 }
 
 bool hw_has_keyboard()
 {
-#if defined(USING_INPUT_DEV_KEYBOARD)
-    return true;
-#else
-    return false;
-#endif
+    return hw_get_device_online() & HW_KEYBOARD_ONLINE;
 }
 
 bool hw_has_otg_function()
@@ -1770,3 +1946,174 @@ void hw_set_remote_code(uint32_t nec_code)
     printf("Send code:0x%X\n", nec_code);
 }
 #endif
+
+#ifdef USING_MAG_QMC5883
+
+void hw_mag_enable(bool enable)
+{
+#ifdef ARDUINO
+    if (enable) {
+        /* Config Magnetometer */
+        instance.mag.configMagnetometer(SensorQSTMagnetic::MODE_CONTINUOUS,
+                                        SensorQSTMagnetic::RANGE_8G,
+                                        SensorQSTMagnetic::DATARATE_100HZ,
+                                        SensorQSTMagnetic::OSR_1,
+                                        SensorQSTMagnetic::DSR_1);
+    } else {
+        instance.mag.setMode(SensorQSTMagnetic::MODE_SUSPEND);
+    }
+#endif
+}
+
+
+float hw_mag_get_polar()
+{
+#ifdef ARDUINO
+    Polar polar;
+    if (instance.mag.readPolar(polar)) {
+        return polar.polar;
+    }
+    return 0.0f;
+#else
+    static float sim_angle = 0;
+    sim_angle = fmod(sim_angle + 0.5, 360);
+    return sim_angle;
+#endif
+}
+
+#endif /*USING_MAG_QMC5883*/
+
+#ifdef USING_BME280
+
+void hw_bme_enable(bool enable)
+{
+#ifdef ARDUINO
+    if (enable) {
+        instance.bme.setSampling(Adafruit_BME280::MODE_NORMAL,
+                                 Adafruit_BME280::SAMPLING_X1,   // temperature
+                                 Adafruit_BME280::SAMPLING_X1, // pressure
+                                 Adafruit_BME280::SAMPLING_X1,   // humidity
+                                 Adafruit_BME280::FILTER_X2 );
+    } else {
+        instance.bme.setSampling(Adafruit_BME280::MODE_SLEEP);
+    }
+#endif
+}
+
+
+void hw_bme_get_data(float &temp, float &humi, float &press, float &alt)
+{
+#ifdef ARDUINO
+    temp = instance.bme.readTemperature();
+    humi = instance.bme.readHumidity();
+    press = instance.bme.readPressure() / 100.0F;
+    alt = instance.bme.readAltitude(1013.25);
+
+#else
+    temp = random(0, 25);
+    humi = random(40, 95);
+    press = random(1000, 1200);
+    alt = random(20, 60);
+#endif
+}
+
+#endif /*USING_BME280*/
+
+
+using TrackballEventCallback = void(*)(uint8_t dir);
+using ButtonEventCallback = void(*)(uint8_t idx, uint8_t state);
+
+#if defined(ARDUINO) && defined(USING_TRACKBALL)
+
+static TrackballEventCallback _trackball_cb = NULL;
+static ButtonEventCallback    _button_cb = NULL;
+
+
+static void trackballEventCallback(DeviceEvent_t event, void *params, void *user_data)
+{
+    if (_trackball_cb && params) {
+        TrackballDir_t dir = *(static_cast < TrackballDir_t * > (params));
+        _trackball_cb(dir);
+    }
+}
+
+static void buttonEventCallback(DeviceEvent_t event, void *params, void *user_data)
+{
+    if (_button_cb && params) {
+        ButtonEventParam_t *p = static_cast < ButtonEventParam_t * > (params);
+        _button_cb(p->id, p->event);
+    }
+}
+
+#endif
+
+void hw_set_trackball_callback(TrackballEventCallback callback)
+{
+#if defined(ARDUINO) && defined(USING_TRACKBALL)
+    // instance.setTrackballCallback(callback);
+    if (callback) {
+        instance.onEvent(trackballEventCallback, TRACKBALL_EVENT, NULL);
+        _trackball_cb = callback;
+    } else {
+        instance.removeEvent(trackballEventCallback, TRACKBALL_EVENT);
+        _trackball_cb = NULL;
+    }
+#endif
+}
+
+void hw_set_button_callback(ButtonEventCallback callback)
+{
+#if defined(ARDUINO) && defined(USING_TRACKBALL)
+    if (callback) {
+        instance.onEvent(buttonEventCallback, BUTTON_EVENT, NULL);
+        _button_cb = callback;
+    } else {
+        instance.removeEvent(buttonEventCallback, BUTTON_EVENT);
+        _button_cb = NULL;
+    }
+#endif
+}
+
+const char *hw_get_device_power_tips_string()
+{
+#if defined(USING_PPM_MANAGE)
+    return "Select a shutdown method:\n"
+           "1. Sleep: Set to sleep mode and press the Boot button to wake up.\n"
+           "2. Shutdown: Turn off the device (requires removing the USB-C port to shut down).\n"
+           "After shutting down, press and hold the Power button or plug in a USB-C port to activate the device.";
+#else
+    return "Select a shutdown method:\n"
+           "1. Sleep: Set to sleep mode and press the Boot button to wake up.\n"
+           "2. Shutdown: Turn off the device. After shutting down, press and hold the Power button or plug in a\n"
+           "USB-C cable to activate the device.";
+#endif
+}
+
+const char *hw_get_firmware_hash_string()
+{
+#ifdef ARDUINO
+    static char hash_string[33] = {0};
+    snprintf(hash_string, sizeof(hash_string), "%s", ESP.getSketchMD5().c_str());
+    return hash_string;
+#else
+    return "DummyHashString";
+#endif
+}
+
+const char *hw_get_chip_id_string()
+{
+#ifdef ARDUINO
+    static char chipid[13] = {0};
+    uint64_t chipmacid = 0LL;
+    esp_efuse_mac_get_default((uint8_t *)(&chipmacid));
+    snprintf(chipid, sizeof(chipid), "%04X%08X", (uint16_t)(chipmacid >> 32), (uint32_t)(chipmacid));
+    return chipid;
+#endif
+    return "DummyChipIDString";
+}
+
+
+bool hw_get_enter_poweroff()
+{
+    return false;
+}

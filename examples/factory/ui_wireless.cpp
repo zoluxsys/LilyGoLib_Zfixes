@@ -47,6 +47,14 @@ static void password_ta_event_cb(lv_event_t *e)
 
     bool copyToBuffer = false;
 
+    if (code != LV_EVENT_DRAW_MAIN_BEGIN &&
+            code != LV_EVENT_DRAW_MAIN &&
+            code != LV_EVENT_DRAW_MAIN_END &&
+            code != LV_EVENT_DRAW_POST_BEGIN &&
+            code != LV_EVENT_DRAW_POST && code != LV_EVENT_DRAW_POST_END
+       )
+        printf("ta event code:%d state:%d edited:%d\n", code, state, edited);
+
 #ifdef USING_TOUCHPAD
     if (code == LV_EVENT_READY) {
         lv_keyboard_set_textarea(keyboard, NULL);
@@ -57,6 +65,9 @@ static void password_ta_event_cb(lv_event_t *e)
 
     if (code == LV_EVENT_CLICKED) {
 
+#if defined(USING_INPUT_DEV_KEYBOARD) && !defined(USING_INPUT_DEV_ROTARY)
+        enable_keyboard();
+#else
         if (edited) {
             lv_group_set_editing((lv_group_t *)lv_obj_get_group(ta), false);
             printf("disable keyboard\n");
@@ -69,8 +80,19 @@ static void password_ta_event_cb(lv_event_t *e)
             lv_obj_clear_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
         }
 #endif
+#endif  /*defined(USING_INPUT_DEV_KEYBOARD) && !defined(USING_INPUT_DEV_ROTARY)*/
+    }
+    
+#if defined(USING_INPUT_DEV_KEYBOARD) && !defined(USING_INPUT_DEV_ROTARY)
+    else if (code == LV_EVENT_DEFOCUSED) {
 
-    } else if (code == LV_EVENT_FOCUSED) {
+        printf("disable keyboard\n");
+        disable_keyboard();
+
+    }
+#endif  /*defined(USING_INPUT_DEV_KEYBOARD) && !defined(USING_INPUT_DEV_ROTARY)*/
+
+    else if (code == LV_EVENT_FOCUSED) {
         if (edited) {
             printf("enable input keyboard \n");
             enable_keyboard();
@@ -86,6 +108,7 @@ static void password_ta_event_cb(lv_event_t *e)
         }
     }
 #endif
+
     if (copyToBuffer) {
         const char  *password =  lv_textarea_get_text(ta);
         if (!password) {
@@ -154,6 +177,18 @@ static void dropdown_event(lv_event_t *e)
         lv_dropdown_get_selected_str(dd, buf, 128);
         printf("select option = %s\n", buf);
         lv_strcpy(wifi_ssid, buf);
+#ifdef WIFI_SSID
+        if (lv_strcmp(wifi_ssid, WIFI_SSID) == 0) {
+            lv_strncpy(wifi_password, WIFI_PASSWORD, lv_strlen(WIFI_PASSWORD));
+            printf("Copy ssid:%s password to buffer:%s\n", wifi_ssid, wifi_password);
+        }
+#endif
+#ifdef WIFI_SSID2
+        if (lv_strcmp(wifi_ssid, WIFI_SSID2) == 0) {
+            lv_strncpy(wifi_password, WIFI_PASSWORD2, lv_strlen(WIFI_PASSWORD2));
+            printf("Copy ssid:%s password to buffer:%s\n", wifi_ssid, wifi_password);
+        }
+#endif
     }
 }
 
@@ -166,6 +201,9 @@ static lv_obj_t *dropdown_create(lv_obj_t *parent)
 #ifdef WIFI_SSID
     lv_dropdown_add_option(wifi_dd, WIFI_SSID, 0);
     lv_strcpy(wifi_ssid, WIFI_SSID);
+#endif
+#ifdef WIFI_SSID2
+    lv_dropdown_add_option(wifi_dd, WIFI_SSID2, 1);
 #endif
     return wifi_dd;
 }

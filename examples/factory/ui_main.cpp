@@ -29,6 +29,11 @@ LV_IMG_DECLARE(img_battery);
 LV_IMG_DECLARE(img_MotionRecognition);
 LV_IMG_DECLARE(img_MotorLearning);
 LV_IMG_DECLARE(img_camera);
+LV_IMG_DECLARE(img_si4735);
+LV_IMG_DECLARE(img_track);
+LV_IMG_DECLARE(img_compass);
+LV_IMG_DECLARE(img_nfc);
+LV_IMG_DECLARE(img_batter_low);
 
 LV_IMG_DECLARE(img_background2);
 
@@ -39,6 +44,7 @@ LV_FONT_DECLARE(font_alibaba_60);
 LV_FONT_DECLARE(font_alibaba_100);
 
 #define DEVICE_CAN_SLEEP                (LV_OBJ_FLAG_USER_1)
+#define SCREEN_TIMEOUT 10000
 
 lv_obj_t *main_screen;
 lv_obj_t *menu_panel;
@@ -46,6 +52,7 @@ lv_group_t *menu_g, *app_g;
 static lv_timer_t *clock_timer;
 static lv_obj_t *clock_page;
 static lv_timer_t *disp_timer = NULL;
+static lv_timer_t *dev_timer = NULL;
 static uint32_t disp_time_ms = 0;
 
 typedef struct {
@@ -89,6 +96,7 @@ void menu_show()
     lv_obj_set_tile_id(main_screen, 0, 0, LV_ANIM_ON);
     lv_timer_resume(disp_timer);
     lv_disp_trig_activity(NULL);
+    hw_feedback();
 }
 
 void menu_hidden()
@@ -172,6 +180,7 @@ static void create_app(lv_obj_t *parent, const char *name, const lv_img_dsc_t *i
         }
         if (c == LV_EVENT_CLICKED) {
             set_default_group(app_g);
+            hw_feedback();
             if (func_cb->setup_func_cb) {
                 (*func_cb->setup_func_cb)(parent);
             }
@@ -226,9 +235,8 @@ lv_obj_t *setupClock()
 
     const  lv_font_t *font = &font_alibaba_100;
 
-    lv_obj_t *page = lv_obj_create(lv_scr_act());
+    lv_obj_t *page = lv_obj_create(lv_screen_active());
     lv_obj_set_style_bg_img_src(page, &img_background2, LV_PART_MAIN);
-
     lv_obj_set_size(page, LV_PCT(100), LV_PCT(100));
     lv_obj_clear_flag(page, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_border_width(page, 0, 0);
@@ -252,6 +260,14 @@ lv_obj_t *setupClock()
     uint32_t phy_ver_res = lv_disp_get_physical_ver_res(NULL);
     if (phy_ver_res > 222) {
         h = LV_PCT(45);
+    }
+
+    if (phy_hor_res == 320 && phy_ver_res == 240) {
+        font = &font_alibaba_60;
+        x_offset = 10;
+        y_offset = -20;
+        w = LV_PCT(40);
+        h = LV_PCT(48);
     }
 
     lv_obj_t *hour_cout = lv_obj_create(page);
@@ -392,9 +408,9 @@ static void scrollbar_change_cb(lv_event_t *e)
         const char *name = (const char *)lv_obj_get_user_data(child_objects[last_id].obj);
         if (name) {
 #if LVGL_VERSION_MAJOR == 9
-            lv_obj_send_event(desc_label, (lv_event_code_t )name_change_id, (void*)name);
+            lv_obj_send_event(desc_label, (lv_event_code_t )name_change_id, (void *)name);
 #else
-            lv_msg_send(MSG_MENU_NAME_CHANGED, (void*)name);
+            lv_msg_send(MSG_MENU_NAME_CHANGED, (void *)name);
 #endif
         }
     }
@@ -404,27 +420,125 @@ static void scrollbar_change_cb(lv_event_t *e)
 }
 #endif
 
+
+static void hw_device_poll(lv_timer_t *t)
+{
+    monitor_params_t params;
+    hw_get_monitor_params(params);
+    if (params.battery_voltage < 3300 && params.usb_voltage == 0) {
+        printf("Low battery voltage: %.2f V\n", params.battery_voltage);
+        lv_obj_clean(lv_screen_active());
+        lv_obj_set_style_bg_color(lv_screen_active(), lv_color_black(), LV_PART_MAIN);
+        lv_obj_set_style_radius(lv_screen_active(), 0, 0);
+
+        lv_obj_t *image = lv_image_create(lv_screen_active());
+        lv_image_set_src(image, &img_batter_low);
+        lv_obj_center(image);
+
+        lv_obj_t *label = lv_label_create(lv_screen_active());
+        lv_label_set_text(label, "Battery Low!\nShutting down...");
+        lv_obj_set_style_text_color(label, lv_color_white(), LV_PART_MAIN);
+        lv_obj_set_style_text_font(label, &lv_font_montserrat_18, LV_PART_MAIN);
+        lv_obj_align(label, LV_ALIGN_BOTTOM_MID, 0, -30);
+
+        lv_refr_now(NULL);
+        lv_delay_ms(3000);
+        hw_shutdown();
+    }
+}
+
+static void ui_poll_timer_callback(lv_timer_t *t)
+{
+    bool timeout = lv_display_get_inactive_time(NULL) > SCREEN_TIMEOUT;
+    if (timeout) {
+        if (!lv_obj_has_flag(main_screen, LV_OBJ_FLAG_HIDDEN) && get_enter_low_power_flag()) {
+            lv_obj_add_flag(main_screen, LV_OBJ_FLAG_HIDDEN);
+
+            keyboard_level = hw_get_kb_backlight();
+            hw_set_kb_backlight(0);
+            lv_obj_clear_flag(clock_page, LV_OBJ_FLAG_HIDDEN);
+            lv_timer_resume(clock_timer);
+
+            hw_set_cpu_freq(80);
+
+            if (hw_get_disp_timeout_ms() != 0) {
+                disp_time_ms = lv_tick_get() + hw_get_disp_timeout_ms();
+            } else {
+                disp_time_ms = 0;
+            }
+        }
+    } else {
+        if (!lv_obj_has_flag(clock_page, LV_OBJ_FLAG_HIDDEN)) {
+
+            hw_set_cpu_freq(240);
+
+            lv_obj_add_flag(clock_page, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(main_screen, LV_OBJ_FLAG_HIDDEN);
+            lv_timer_pause(clock_timer);
+
+            hw_set_kb_backlight(keyboard_level);
+        }
+    }
+
+    if (lv_obj_has_flag(main_screen, LV_OBJ_FLAG_HIDDEN)) {
+        bool disp_on = hw_get_disp_is_on();
+        if (disp_on && disp_time_ms != 0) {
+            if (lv_tick_get() > disp_time_ms) {
+                printf("Disp off\n");
+
+                brightness_level =  hw_get_disp_backlight();
+                printf("brightness_level:%d\n", brightness_level);
+
+                hw_dec_brightness(0);
+
+                hw_low_power_loop();
+#ifdef NO_ENTER_LIGHT_SLEEP
+                printf("Enter sleep\n");
+                pinMode(0, INPUT_PULLUP);
+                while (digitalRead(0) == HIGH) {
+                    delay(10);
+                }
+                printf("Wakeup\n");
+#endif
+                lv_obj_add_flag(clock_page, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(main_screen, LV_OBJ_FLAG_HIDDEN);
+                lv_timer_pause(clock_timer);
+
+                hw_set_cpu_freq(240);
+
+                lv_refr_now(NULL);
+
+                lv_display_trigger_activity(NULL);
+
+                hw_inc_brightness(brightness_level);
+
+                hw_set_kb_backlight(keyboard_level);
+            }
+        }
+    }
+}
+
 void setupGui()
 {
+    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_radius(lv_screen_active(), 0, 0);
+    lv_obj_t *start_logo = lv_label_create(lv_screen_active());
+    lv_label_set_text(start_logo, "LilyGo");
+    LV_FONT_DECLARE(font_logo_84);
+    lv_obj_set_style_text_font(start_logo, &font_logo_84, LV_PART_MAIN);
+    lv_obj_set_style_text_color(start_logo, lv_color_white(), LV_PART_MAIN);
+    lv_obj_center(start_logo);
+    lv_refr_now(NULL);
 
     disable_keyboard();
 
-    const lv_font_t  *main_font = NULL;
-
-#if defined(ARDUINO_T_LORA_PAGER)
-    main_font = &lv_font_montserrat_16;
-#elif defined(ARDUINO_T_WATCH_S3)
-    main_font = &lv_font_montserrat_12;
-#else
-    main_font = &lv_font_montserrat_22;
-#endif
-
+    const lv_font_t  *main_font = MAIN_FONT;
     lv_theme_default_init(NULL, lv_color_black(), lv_palette_darken(LV_PALETTE_GREY, 3),
                           LV_THEME_DEFAULT_DARK, main_font);
 
     theme_init();
 
-    // Create group
+    // Create groups
     menu_g = lv_group_create();
     app_g = lv_group_create();
     set_default_group(menu_g);
@@ -438,7 +552,9 @@ void setupGui()
     lv_style_set_shadow_color(&style_frameless, lv_color_black());
 
     /* opening animation */
-    main_screen = lv_tileview_create(lv_scr_act());
+    main_screen = lv_tileview_create(lv_screen_active());
+    lv_obj_add_flag(main_screen, LV_OBJ_FLAG_HIDDEN);
+
     lv_obj_align(main_screen, LV_ALIGN_TOP_RIGHT, 0, 0);
     lv_obj_set_size(main_screen, LV_PCT(100), LV_PCT(100));
 
@@ -493,6 +609,31 @@ void setupGui()
     create_app(panel, "Camera Remote", &img_camera, &ui_camera_remote_main);
 #endif
 
+#if defined(USING_SI473X_RADIO)
+    extern app_t ui_si4735_main;
+    create_app(panel, "Radio", &img_si4735, &ui_si4735_main);
+#endif
+
+#if defined(USING_MAG_QMC5883)
+    extern app_t ui_compass_main;
+    create_app(panel, "Compass", &img_compass, &ui_compass_main);
+#endif
+
+#if defined(USING_TRACKBALL)
+    extern app_t ui_trackball_main;
+    create_app(panel, "Trackball", &img_track, &ui_trackball_main);
+#endif
+
+#if defined(USING_ST25R3916)
+    extern app_t ui_nfc_main;
+    create_app(panel, "NFC", &img_nfc, &ui_nfc_main);
+#endif
+
+    // #if defined(TODO://)
+    // extern app_t ui_recorder_main;
+    // create_app(panel, "Recorder", &img_track, &ui_recorder_main);
+    // #endif
+
     create_app(panel, "Screen Test", &img_test, &ui_factory_main);
     create_app(panel, "Setting", &img_configuration, &ui_sys_main);
     create_app(panel, "Wireless", &img_wifi, &ui_wireless_main);
@@ -509,8 +650,9 @@ void setupGui()
 #endif
 
     create_app(panel, "Music", &img_music, &ui_audio_main);
-    create_app(panel, "Radio", &img_radio, &ui_radio_main);
-    create_app(panel, "LoRa Chat", &img_msgchat, &ui_msgchat_main);
+    create_app(panel, "LoRa", &img_radio, &ui_radio_main);
+    // TODO:
+    // create_app(panel, "LoRa Chat", &img_msgchat, &ui_msgchat_main);
     create_app(panel, "GPS", &img_gps, &ui_gps_main);
     create_app(panel, "Monitor", &img_monitoring, &ui_monitor_main);
     create_app(panel, "Power", &img_power, &ui_power_main);
@@ -547,91 +689,21 @@ void setupGui()
 
     lv_obj_update_snap(panel, LV_ANIM_ON);
 
-#define SCREEN_TIMEOUT 10000
 
     clock_page = setupClock();
     lv_obj_add_flag(clock_page, LV_OBJ_FLAG_HIDDEN);
 
-    disp_timer = lv_timer_create([](lv_timer_t *t) {
-        bool timeout = lv_disp_get_inactive_time(NULL) > SCREEN_TIMEOUT;
+    disp_timer = lv_timer_create(ui_poll_timer_callback, 1000, NULL);
 
-
-        // printf("timer run: %u\n", lv_disp_get_inactive_time(NULL));
-        if (timeout) {
-            if (!lv_obj_has_flag(main_screen, LV_OBJ_FLAG_HIDDEN) && get_enter_low_power_flag()) {
-                lv_obj_add_flag(main_screen, LV_OBJ_FLAG_HIDDEN);
-
-                keyboard_level = hw_get_kb_backlight();
-                hw_set_kb_backlight(0);
-                lv_obj_clear_flag(clock_page, LV_OBJ_FLAG_HIDDEN);
-                lv_timer_resume(clock_timer);
-
-                hw_set_cpu_freq(80);
-
-                if (hw_get_disp_timeout_ms() != 0) {
-                    disp_time_ms = lv_tick_get() + hw_get_disp_timeout_ms();
-                } else {
-                    disp_time_ms = 0;
-                }
-                // printf("disp_time_ms start:%u\n", disp_time_ms);
-            }
-        } else {
-            if (!lv_obj_has_flag(clock_page, LV_OBJ_FLAG_HIDDEN)) {
-
-                hw_set_cpu_freq(240);
-
-                lv_obj_add_flag(clock_page, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_clear_flag(main_screen, LV_OBJ_FLAG_HIDDEN);
-                lv_timer_pause(clock_timer);
-
-                hw_set_kb_backlight(keyboard_level);
-            }
-        }
-
-        if (lv_obj_has_flag(main_screen, LV_OBJ_FLAG_HIDDEN)) {
-            bool disp_on = hw_get_disp_is_on();
-            // printf("lv_tick_get run:%u disp_on:%d\n", lv_tick_get(), disp_on);
-            if (disp_on && disp_time_ms != 0) {
-                if (lv_tick_get() > disp_time_ms) {
-                    printf("Disp off\n");
-
-                    brightness_level =  hw_get_disp_backlight();
-                    printf("brightness_level:%d\n", brightness_level);
-
-                    hw_dec_brightness(0);
-
-                    hw_low_power_loop();
-#ifdef NO_ENTER_LIGHT_SLEEP
-                    printf("Enter sleep\n");
-                    pinMode(0, INPUT_PULLUP);
-                    while (digitalRead(0) == HIGH) {
-                        delay(10);
-                    }
-                    printf("Wakeup\n");
-#endif
-                    lv_obj_add_flag(clock_page, LV_OBJ_FLAG_HIDDEN);
-                    lv_obj_clear_flag(main_screen, LV_OBJ_FLAG_HIDDEN);
-                    lv_timer_pause(clock_timer);
-
-                    hw_set_cpu_freq(240);
-
-                    lv_refr_now(NULL);
-
-                    lv_disp_trig_activity(NULL);
-
-                    hw_inc_brightness(brightness_level);
-
-                    hw_set_kb_backlight(keyboard_level);
-                }
-            }
-        }
-    }, 1000, NULL);
-
+    dev_timer = lv_timer_create(hw_device_poll, 5000, NULL);
 
     // Allow low power mode
     set_low_power_mode_flag(true);
-    lv_disp_trig_activity(NULL);
+    lv_display_trigger_activity(NULL);
 
+
+    lv_delay_ms(5000);
+    lv_obj_remove_flag(main_screen, LV_OBJ_FLAG_HIDDEN);
 }
 
 
@@ -647,7 +719,7 @@ void touch_panel_init()
 #if 1
     lv_color_format_t cf = LV_COLOR_FORMAT_ARGB8888;
     uint32_t buffer_size =    LV_DRAW_BUF_SIZE(width, height, cf);
-    uint8_t *buf_draw_buf = (uint8_t*)malloc(buffer_size);
+    uint8_t *buf_draw_buf = (uint8_t *)malloc(buffer_size);
     uint16_t stride_size = LV_DRAW_BUF_STRIDE(width, cf);
 
     printf("data_size:%u\n", buffer_size);
@@ -707,7 +779,7 @@ void touch_panel_init()
         return;
     }
 
-    lv_timer_create([](lv_timer_t*t) {
+    lv_timer_create([](lv_timer_t *t) {
 
 #undef lv_point_t
         lv_point_t  point;

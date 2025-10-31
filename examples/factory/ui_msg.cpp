@@ -21,9 +21,6 @@ static void msgbox_event(lv_event_t *e)
 
 void ui_msg_pop_up(const char *title_txt, const char *msg_txt)
 {
-    if (!isinMenu()) {
-        return;
-    }
 
     set_low_power_mode_flag(false);
 

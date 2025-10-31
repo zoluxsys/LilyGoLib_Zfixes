@@ -331,6 +331,7 @@ lv_obj_t *create_menu(lv_obj_t *parent, lv_event_cb_t event_cb)
     return menu;
 }
 
+#ifndef ARDUINO
 lv_indev_t *lv_get_encoder_indev()
 {
     lv_indev_t *indev = lv_indev_get_next(NULL);
@@ -355,22 +356,22 @@ lv_indev_t *lv_get_keyboard_indev()
     }
     return NULL;
 }
-
+#endif
 
 void disable_input_devices()
 {
+    hw_disable_input_devices();
+    lv_indev_enable(lv_get_encoder_indev(), false);
     if (hw_has_keyboard()) {
-        hw_disable_input_devices();
-        lv_indev_enable(lv_get_encoder_indev(), false);
         lv_indev_enable(lv_get_keyboard_indev(), false);
     }
 }
 
 void enable_input_devices()
 {
+    hw_enable_input_devices();
+    lv_indev_enable(lv_get_encoder_indev(), true);
     if (hw_has_keyboard()) {
-        hw_enable_input_devices();
-        lv_indev_enable(lv_get_encoder_indev(), true);
         lv_indev_enable(lv_get_keyboard_indev(), true);
     }
 }
@@ -378,6 +379,7 @@ void enable_input_devices()
 void disable_keyboard()
 {
     if (hw_has_keyboard()) {
+        hw_disable_keyboard();
         lv_indev_enable(lv_get_keyboard_indev(), false);
     }
 }
@@ -385,7 +387,20 @@ void disable_keyboard()
 void enable_keyboard()
 {
     if (hw_has_keyboard()) {
+        hw_enable_keyboard();
         hw_flush_keyboard();
         lv_indev_enable(lv_get_keyboard_indev(), true);
     }
+}
+
+bool is_screen_small()
+{
+    lv_coord_t w = lv_disp_get_hor_res(NULL);
+    lv_coord_t h = lv_disp_get_ver_res(NULL);
+    printf("Screen size: %dx%d\n", w, h);
+    if (w <= 240 || h <= 240) {
+        printf("Small screen detected.\n");
+        return true;
+    }
+    return false;
 }

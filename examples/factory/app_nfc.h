@@ -32,6 +32,7 @@
  
  bool beginNFC(notify_callback_t notify_cb, ndef_event_callback_t event_cb);
  void loopNFCReader();
+ void deinitNFC();
  
  extern RfalNfcClass NFCReader;
  

@@ -16,9 +16,6 @@
 #include "event_define.h"
 
 using namespace std;
-
-
-
 typedef enum {
     MEDIA_VOLUME_UP,
     MEDIA_VOLUME_DOWN,
@@ -27,10 +24,23 @@ typedef enum {
     MEDIA_PREVIOUS
 } media_key_value_t;
 
+typedef enum {
+    KEYBOARD_TYPE_NONE,
+    KEYBOARD_TYPE_1,
+    KEYBOARD_TYPE_2,
+}keyboard_type_t;
+
+
+/* Radio frequency constants */
+// #define RADIO_FIXED_FREQUENCY  920.0
+// #define RADIO_FIXED_FREQUENCY_STRING "920MHZ"
+#define RADIO_DEFAULT_FREQUENCY  868.0
 
 // Check if not compiling for Arduino environment
 // If not, define the wl_status_t enumeration
 #ifndef ARDUINO
+
+#define constrain(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 
 #ifndef _BV
 #define _BV(x)                      (1UL<<x)
@@ -80,7 +90,9 @@ typedef enum {
 #define HW_EXPAND_ONLINE         _BV(12)
 #define HW_CODEC_ONLINE          _BV(13)
 #define HW_NRF24_ONLINE          _BV(14)
-
+#define HW_SI473X_ONLINE         _BV(15)
+#define HW_BME280_ONLINE         _BV(16)
+#define HW_QMC5883P_ONLINE       _BV(17)
 #else
 // If compiling for Arduino, include the WiFi library
 #include <WiFi.h>
@@ -164,7 +176,23 @@ typedef struct {
     string password;
 } wifi_conn_params_t;
 
+/**
+ * @brief  Enumeration representing different audio source types.
+ * @note   This enumeration is used to specify the source of audio data.
+ */
+typedef enum {
+    AUDIO_SOURCE_FATFS,
+    AUDIO_SOURCE_SDCARD,
+} audio_source_type_t;
 
+/**
+ * @brief  Structure to hold audio parameters.
+ * @note   This structure is used to specify the audio source and filename.
+ */
+typedef struct {
+    audio_source_type_t source_type;
+    string file_name;
+} AudioParams_t;
 
 typedef enum {
     MONITOR_PMU,
@@ -222,6 +250,7 @@ typedef struct {
 typedef struct {
     enum app_event event;
     const char *filename ;
+    audio_source_type_t source_type;
 } audio_params_t;
 
 /**
@@ -263,6 +292,29 @@ typedef struct {
     uint8_t orientation;
 } imu_params_t;
 
+typedef enum {
+    HW_TRACKBALL_DIR_NONE,
+    HW_TRACKBALL_DIR_UP,
+    HW_TRACKBALL_DIR_DOWN,
+    HW_TRACKBALL_DIR_LEFT,
+    HW_TRACKBALL_DIR_RIGHT
+} hw_trackball_dir;
+
+// FFT Configuration
+#define FFT_SIZE 512
+#define SAMPLE_RATE 16000
+#define FREQ_BANDS 16
+
+/**
+ * @brief Structure to hold FFT data.
+ *
+ * This structure stores the FFT data for the left and right audio channels.
+ */
+typedef struct {
+    float left_bands[FREQ_BANDS];
+    float right_bands[FREQ_BANDS];
+} FFTData;
+
 /**
  * @brief Initialize the hardware.
  *
@@ -285,14 +337,12 @@ uint16_t hw_get_devices_nums();
  */
 const char *hw_get_devices_name(int index);
 
-
-
-
-
-
-
+/**
+ * @brief Get the variant name of the device.
+ *
+ * @return A pointer to the variant name string.
+ */
 const char *hw_get_variant_name();
-
 
 /**
  * @brief Get the MAC address of the device.
@@ -372,9 +422,14 @@ void hw_get_arduino_version(string &param);
  */
 bool hw_get_gps_info(gps_params_t &param);
 
-
+/**
+ * @brief Attach the PPS signal to the GPS.
+ */
 void hw_gps_attach_pps();
 
+/**
+ * @brief Detach the PPS signal from the GPS.
+ */
 void hw_gps_detach_pps();
 
 /**
@@ -427,7 +482,7 @@ uint8_t hw_get_kb_backlight();
 int16_t hw_set_wifi_scan();
 
 /**
- * @brief Get the WiFi scanning ? 
+ * @brief Get the WiFi scanning ?
  * @return true is running,false is stop.
  */
 bool hw_get_wifi_scanning();
@@ -437,7 +492,7 @@ bool hw_get_wifi_scanning();
  *
  * @param list A reference to a vector where the WiFi scan results will be stored.
  */
-void hw_get_wifi_scan_result(vector <wifi_scan_params_t> &list);
+void hw_get_wifi_scan_result(vector < wifi_scan_params_t > &list);
 
 /**
  * @brief Set up a WiFi connection.
@@ -499,18 +554,19 @@ void hw_get_radio_rx(radio_rx_params_t &params);
 void hw_mount_sd();
 
 /**
- * @brief Get the list of music files on the SD card.
+ * @brief Get the list of music files from the SD card.
  *
- * @param list A reference to a vector where the music file names will be stored.
+ * @param list A reference to an AudioParams_t structure where the music file list will be stored.
  */
-void hw_get_sd_music(vector <string> &list);
+void hw_get_filesystem_music(vector<AudioParams_t>  &list);
 
-/**
- * @brief Start playing a music file from the SD card.
- *
- * @param filename A pointer to the name of the music file to play.
- */
-void hw_set_sd_music_play(const char *filename);
+/*
+* @brief Start playing a music file from the SD card.
+*
+* @param source_type The source type of the audio (e.g., SD card, FFAT).
+* @param filename A pointer to the name of the music file to play.
+*/
+void hw_set_sd_music_play(audio_source_type_t source_type, const char *filename);
 
 /**
  * @brief Pause the music playback.
@@ -529,7 +585,16 @@ void hw_set_sd_music_resume();
  */
 bool hw_player_running();
 
+/**
+ * @brief Set the volume level.
+ *
+ * @param volume The volume level to set (0-100).
+ */
+void hw_set_volume(uint8_t volume);
 
+/**
+ * @brief Stop the music playback.
+ */
 void hw_set_play_stop();
 
 /**
@@ -585,12 +650,6 @@ uint16_t hw_get_charger_current();
  */
 void hw_set_charger_current(uint16_t milliampere);
 
-/**
- * @brief Get the microphone pressure level.
- *
- * @return The microphone pressure level.
- */
-int16_t hw_get_microphone_pressure_level();
 
 /**
  * @brief Get the monitor parameters.
@@ -635,7 +694,7 @@ void hw_disable_ble();
  * @param buffer_size The size of the buffer.
  * @return The number of bytes read from the BLE message.
  */
-size_t hw_get_ble_message(char*buffer, size_t buffer_size);
+size_t hw_get_ble_message(char *buffer, size_t buffer_size);
 
 /**
  * @brief Deinitialize the BLE module.
@@ -657,7 +716,7 @@ void hw_set_ble_kb_disable();
  *
  * @param c A pointer to the character to send.
  */
-void hw_set_ble_kb_char(const char * c);
+void hw_set_ble_kb_char(const char *c);
 
 /**
  * @brief Send a key code via the BLE keyboard.
@@ -796,8 +855,10 @@ void hw_set_cpu_freq(uint32_t mhz);
  * @brief Start the microphone.
  *
  * This function initializes and starts the microphone for audio input.
+ *
+ * @return True if the microphone is successfully started, false otherwise.
  */
-void hw_set_mic_start();
+bool hw_set_mic_start();
 
 /**
  * @brief Stop the microphone.
@@ -806,53 +867,561 @@ void hw_set_mic_start();
  */
 void hw_set_mic_stop();
 
+/**
+ * @brief Get the FFT data.
+ *
+ * This function retrieves the FFT data and stores it in the provided FFTData structure.
+ *
+ * @param fft_data A pointer to an FFTData structure where the FFT data will be stored.
+ */
+void hw_audio_get_fft_data(FFTData *fft_data);
 
+/**
+ * @brief Disable all input devices.
+ *
+ * This function disables all input devices, such as the microphone and touchpad.
+ */
 void hw_disable_input_devices();
 
-
+/**
+ * @brief Enable all input devices.
+ *
+ * This function enables all input devices, such as the microphone and touchpad.
+ */
 void hw_enable_input_devices();
 
+/**
+ * @brief Enable the keyboard.
+ *
+ * This function enables the keyboard input.
+ */
+void hw_enable_keyboard();
 
+/**
+ * @brief Disable the keyboard.
+ *
+ * This function disables the keyboard input.
+ */
+void hw_disable_keyboard();
+
+/**
+ * @brief Flush the keyboard input buffer.
+ *
+ * This function clears the keyboard input buffer.
+ */
 void hw_flush_keyboard();
 
+/**
+ * @brief Check if the keyboard is available.
+ *
+ * This function checks if the keyboard is available for input.
+ *
+ * @return True if the keyboard is available, false otherwise.
+ */
 bool hw_has_keyboard();
 
+/**
+ * @brief Check if the OTG function is available.
+ *
+ * This function checks if the OTG (On-The-Go) function is available.
+ *
+ * @return True if the OTG function is available, false otherwise.
+ */
 bool hw_has_otg_function();
 
+/**
+ * @brief Get the minimum display brightness level.
+ *
+ * This function retrieves the minimum display brightness level.
+ *
+ * @return The minimum display brightness level.
+ */
 uint8_t hw_get_disp_min_brightness();
+
+/**
+ * @brief Get the maximum display brightness level.
+ *
+ * This function retrieves the maximum display brightness level.
+ *
+ * @return The maximum display brightness level.
+ */
 uint16_t hw_get_disp_max_brightness();
+
+/**
+ * @brief Get the minimum charging current level.
+ *
+ * This function retrieves the minimum charging current level.
+ *
+ * @return The minimum charging current level.
+ */
 uint8_t hw_get_min_charge_current();
+
+/**
+ * @brief Get the maximum charging current level.
+ *
+ * This function retrieves the maximum charging current level.
+ *
+ * @return The maximum charging current level.
+ */
 uint16_t hw_get_max_charge_current();
+
+/**
+ * @brief Get the number of charging levels.
+ *
+ * This function retrieves the number of charging levels available.
+ *
+ * @return The number of charging levels.
+ */
 uint8_t hw_get_charge_level_nums();
+
+/**
+ * @brief Get the charging steps.
+ *
+ * This function retrieves the charging steps.
+ *
+ * @return The charging steps.
+ */
 uint8_t hw_get_charge_steps();
+
+/**
+ * @brief Set the charger current level.
+ *
+ * This function sets the charger current level to the specified level.
+ *
+ * @param level The desired charger current level.
+ * @return The actual charger current level set.
+ */
 uint16_t hw_set_charger_current_level(uint8_t level);
+
+/**
+ * @brief Get the current charger current level.
+ *
+ * This function retrieves the current charger current level.
+ *
+ * @return The current charger current level.
+ */
 uint8_t hw_get_charger_current_level();
 
+/**
+ * @brief Print memory information.
+ *
+ * This function prints the current memory usage information to the console.
+ */
 void hw_print_mem_info();
 
+/**
+ * @brief Get the NRF24 parameters.
+ *
+ * This function retrieves the NRF24 radio parameters.
+ *
+ * @param params The radio parameters structure to fill.
+ */
 void hw_get_nrf24_params(radio_params_t &params);
-void hw_get_nrf24_params(radio_params_t &params);
+
+/**
+ * @brief Set the NRF24 parameters.
+ *
+ * This function sets the NRF24 radio parameters.
+ *
+ * @param params The radio parameters structure containing the new settings.
+ * @return The result of the operation (0 for success, negative for error).
+ */
 int16_t hw_set_nrf24_params(radio_params_t &params);
+
+/**
+ * @brief Set the NRF24 listening mode.
+ *
+ * This function sets the NRF24 radio to listening mode.
+ */
 void hw_set_nrf24_listening();
+
+/**
+ * @brief Set the NRF24 transmission mode.
+ *
+ * This function sets the NRF24 radio to transmission mode.
+ *
+ * @param params The transmission parameters to use.
+ * @param continuous If true, the transmission will be continuous.
+ * @return True if the operation was successful, false otherwise.
+ */
 bool hw_set_nrf24_tx(radio_tx_params_t &params, bool continuous = true);
+
+/**
+ * @brief Get the NRF24 reception parameters.
+ *
+ * This function retrieves the NRF24 radio reception parameters.
+ *
+ * @param params The reception parameters structure to fill.
+ */
 void hw_get_nrf24_rx(radio_rx_params_t &params);
+
+/**
+ * @brief Check if NRF24 is available.
+ *
+ * This function checks if the NRF24 radio is available.
+ *
+ * @return True if the NRF24 radio is available, false otherwise.
+ */
 bool hw_has_nrf24();
+
+/**
+ * @brief Clear the NRF24 flag.
+ *
+ * This function clears the NRF24 radio flag.
+ */
 void hw_clear_nrf24_flag();
 
-
+/**
+ * @brief Get the radio frequency list.
+ *
+ * This function retrieves the list of available radio frequencies.
+ *
+ * @return A pointer to the frequency list string.
+ */
 const char *radio_get_freq_list();
+
+/**
+ * @brief Get the radio frequency from the index.
+ *
+ * This function retrieves the radio frequency corresponding to the given index.
+ *
+ * @param index The index of the desired frequency.
+ * @return The radio frequency at the specified index.
+ */
 float radio_get_freq_from_index(uint8_t index);
-const char *radio_get_bandwidth_list();
+
+/**
+ * @brief Get the radio bandwidth from the index.
+ *
+ * This function retrieves the radio bandwidth corresponding to the given index.
+ *
+ * @param index The index of the desired bandwidth.
+ * @return The radio bandwidth at the specified index.
+ */
 float radio_get_bandwidth_from_index(uint8_t index);
-const char *radio_get_tx_power_list();
+
+/**
+ * @brief Get the radio bandwidth list.
+ *
+ * This function retrieves the list of available radio bandwidths.
+ *
+ * @param high_freq If true, retrieves the high frequency bandwidths.
+ * @return A pointer to the bandwidth list string.
+ */
+const char *radio_get_bandwidth_list(bool high_freq = false);
+
+/**
+ * @brief Get the radio transmission power list.
+ *
+ * This function retrieves the list of available radio transmission power levels.
+ *
+ * @param high_freq If true, retrieves the high frequency power levels.
+ * @return A pointer to the transmission power list string.
+ */
+const char *radio_get_tx_power_list(bool high_freq = false);
+
+/**
+ * @brief Get the radio transmission power from the index.
+ *
+ * This function retrieves the radio transmission power corresponding to the given index.
+ *
+ * @param index The index of the desired transmission power.
+ * @return The radio transmission power at the specified index.
+ */
 float radio_get_tx_power_from_index(uint8_t index);
+
+/**
+ * @brief Get the radio frequency length.
+ *
+ * This function retrieves the length of the radio frequency list.
+ *
+ * @return The length of the frequency list.
+ */
 uint16_t radio_get_freq_length();
+
+/**
+ * @brief Get the radio bandwidth length.
+ *
+ * This function retrieves the length of the radio bandwidth list.
+ *
+ * @return The length of the bandwidth list.
+ */
 uint16_t radio_get_bandwidth_length();
+
+/**
+ * @brief Get the radio transmission power length.
+ *
+ * This function retrieves the length of the radio transmission power list.
+ *
+ * @return The length of the transmission power list.
+ */
 uint16_t radio_get_tx_power_length();
 
 #if defined(USING_IR_REMOTE)
+/**
+ * @brief Set the remote control code.
+ *
+ * This function sets the remote control code for the IR transmitter.
+ *
+ * @param nec_code The NEC code to set.
+ */
 void hw_set_remote_code(uint32_t nec_code);
 #endif
+
+
+enum Si4735Mode {
+    FM,
+    LSB,
+    USB,
+    AM,
+};
+
+/**
+ * @brief Set the power state of the Si4735.
+ *
+ * This function sets the power state of the Si4735.
+ *
+ * @param powerOn True to turn on the power, false to turn it off.
+ */
+void hw_si4735_set_power(bool powerOn);
+
+/**
+ * @brief Set the volume of the Si4735.
+ *
+ * This function sets the volume of the Si4735.
+ *
+ * @param vol The volume level to set (0-100).
+ */
+void hw_si4735_set_volume(uint8_t vol);
+
+/**
+ * @brief Get the volume of the Si4735.
+ *
+ * This function retrieves the current volume level of the Si4735.
+ *
+ * @return The current volume level (0-100).
+ */
+uint8_t hw_si4735_get_volume(void);
+
+/**
+ * @brief Get the RSSI of the Si4735.
+ *
+ * This function retrieves the current RSSI (Received Signal Strength Indicator) level of the Si4735.
+ *
+ * @return The current RSSI level.
+ */
+uint8_t hw_si4735_get_rssi();
+
+/**
+ * @brief Get the frequency of the Si4735.
+ *
+ * This function retrieves the current frequency of the Si4735.
+ *
+ * @return The current frequency.
+ */
+uint16_t hw_si4735_get_freq();
+
+/**
+ * @brief Check if the current mode is FM.
+ *
+ * This function checks if the Si4735 is currently in FM mode.
+ *
+ * @return True if in FM mode, false otherwise.
+ */
+bool hw_si4735_is_fm();
+
+/**
+ * @brief Set the mode of the Si4735.
+ *
+ * This function sets the mode of the Si4735.
+ *
+ * @param bandType The mode to set.
+ */
+void hw_si4735_set_mode(Si4735Mode bandType);
+
+/**
+ * @brief Update the Si4735 steps.
+ *
+ * This function updates the steps of the Si4735.
+ *
+ * @return The number of steps updated.
+ */
+uint16_t si4735_update_steps();
+
+/**
+ * @brief Set the AGC (Automatic Gain Control) state.
+ *
+ * This function sets the AGC state of the Si4735.
+ *
+ * @param on True to enable AGC, false to disable it.
+ */
+void si4735_set_agc(bool on);
+
+/**
+ * @brief Set the BFO (Beat Frequency Oscillator) state.
+ *
+ * This function sets the BFO state of the Si4735.
+ *
+ * @param on True to enable BFO, false to disable it.
+ */
+void si4735_set_bfo(bool on);
+
+/**
+ * @brief Set the frequency up.
+ *
+ * This function increases the frequency of the Si4735.
+ */
+void si4735_set_freq_up();
+
+/**
+ * @brief Set the frequency down.
+ *
+ * This function decreases the frequency of the Si4735.
+ */
+void si4735_set_freq_down();
+
+/**
+ * @brief Set the band up.
+ *
+ * This function increases the band of the Si4735.
+ */
+void si4735_band_up();
+
+/**
+ * @brief Set the band down.
+ *
+ * This function decreases the band of the Si4735.
+ */
+void si4735_band_down();
+
+/**
+ * @brief Get the current mode of the Si4735.
+ *
+ * This function retrieves the current mode of the Si4735.
+ *
+ * @return The current mode.
+ */
+Si4735Mode hw_si4735_get_mode();
+
+/**
+ * @brief Get the current band name of the Si4735.
+ *
+ * This function retrieves the current band name of the Si4735.
+ *
+ * @return The current band name.
+ */
+const char *hw_si4735_get_band_name();
+
+/**
+ * @brief Get the current step of the Si4735.
+ *
+ * This function retrieves the current step of the Si4735.
+ *
+ * @return The current step.
+ */
+uint16_t si4735_get_current_step();
+
+/**
+ * @brief Enable or disable the magnetometer.
+ *
+ * This function enables or disables the magnetometer.
+ *
+ * @param enable True to enable the magnetometer, false to disable it.
+ */
+void hw_mag_enable(bool enable);
+
+/**
+ * @brief Get the current magnetic field strength.
+ *
+ * This function retrieves the current magnetic field strength from the magnetometer.
+ *
+ * @return The current magnetic field strength.
+ */
+float hw_mag_get_polar();
+
+
+/**
+ * @brief Get the current magnetic field vector.
+ *
+ * This function retrieves the current magnetic field vector from the magnetometer.
+ *
+ * @param x A reference to a float where the X component will be stored.
+ * @param y A reference to a float where the Y component will be stored.
+ * @param z A reference to a float where the Z component will be stored.
+ */
+void hw_bme_get_data(float &temp, float &humi, float &press, float &alt);
+
+/**
+ * @brief Set the trackball callback.
+ *
+ * This function sets the callback function for trackball events.
+ *
+ * @param callback The callback function to set.
+ */
+void hw_set_trackball_callback(void(*callback)(uint8_t dir));
+
+/**
+ * @brief Set the button callback.
+ *
+ * This function sets the callback function for button events.
+ *
+ * @param callback The callback function to set.
+ */
+void hw_set_button_callback(void (*callback)(uint8_t idx, uint8_t state));
+
+
+/**
+ * @brief Start NFC discovery.
+ *
+ * This function starts NFC discovery.
+ *
+ * @return True if NFC discovery is successfully started, false otherwise.
+ */
+bool hw_start_nfc_discovery();
+
+/**
+ * @brief Stop NFC discovery.
+ *
+ * This function stops NFC discovery.
+ */
+void hw_stop_nfc_discovery();
+
+/**
+ * @brief Get the device power tips string.
+ *
+ * This function retrieves the device power tips string.
+ *
+ * @return The device power tips string.
+ */
+const char *hw_get_device_power_tips_string();
+
+
+/**
+ * @brief Check if the screen is small.
+ *
+ * This function checks if the screen is small (e.g., 240x240 or smaller).
+ *
+ * @return True if the screen is small, false otherwise.
+ */
+bool is_screen_small();
+
+/**
+ * @brief Get the firmware hash string.
+ *
+ * This function retrieves the firmware hash string.
+ *
+ * @return The firmware hash string.
+ */
+const char *hw_get_firmware_hash_string();
+
+/**
+ * @brief Get the chip ID string.
+ *
+ * This function retrieves the chip ID string.
+ *
+ * @return The chip ID string.
+ */
+const char *hw_get_chip_id_string();
 
 #if defined(ARDUINO_T_LORA_PAGER)
 #define USING_BLE_KEYBOARD
@@ -866,25 +1435,47 @@ void hw_set_remote_code(uint32_t nec_code);
 #define USING_EXTERN_NRF2401
 #endif
 
+#ifndef USING_ST25R3916
+#define USING_ST25R3916
+#endif
+
+#define MAIN_FONT   &lv_font_montserrat_16
+
+#define NFC_TIPS_STRING "Place the NFC card close to the center of the arrow on the back. It will vibrate when the card is detected; otherwise, it will not display anything if it cannot be resolved."
+
+#define DEVICE_KEYBOARD_TYPE    KEYBOARD_TYPE_1
+
 #elif defined(ARDUINO_T_WATCH_S3_ULTRA)
+
 #define USING_TOUCHPAD
-#define  FLOAT_BUTTON_WIDTH  60
-#define  FLOAT_BUTTON_HEIGHT 60
+#define FLOAT_BUTTON_WIDTH  60
+#define FLOAT_BUTTON_HEIGHT 60
 #define USING_BLE_KEYBOARD
 #ifndef USING_BHI260_SENSOR
 #define USING_BHI260_SENSOR
 #endif
-// #define USING_BLE_CONTROL
+#ifndef USING_ST25R3916
+#define USING_ST25R3916
+#endif
+
+#define NFC_TIPS_STRING "Hold the NFC card close to the front of the screen. It will vibrate when the card is detected; otherwise, it will not display anything if it cannot be resolved."
+
+#define MAIN_FONT   &lv_font_montserrat_22
 
 #elif defined(ARDUINO_T_WATCH_S3)
 #define USING_TOUCHPAD
-#define  FLOAT_BUTTON_WIDTH  40
-#define  FLOAT_BUTTON_HEIGHT 40
+#define FLOAT_BUTTON_WIDTH  40
+#define FLOAT_BUTTON_HEIGHT 40
 #ifndef USING_BMA423_SENSOR
 #define USING_BMA423_SENSOR
 #define USING_BLE_KEYBOARD
 #endif
-// #define USING_BLE_CONTROL
+
+#define NFC_TIPS_STRING "No NFC devices"
+
+#define MAIN_FONT   &lv_font_montserrat_12
+
+
 
 #endif
 

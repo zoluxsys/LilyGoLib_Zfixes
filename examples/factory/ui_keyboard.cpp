@@ -76,8 +76,23 @@ void ui_keyboard_enter(lv_obj_t *parent)
     lv_obj_t *main_page = lv_menu_page_create(menu, NULL);
 
     lv_obj_t *edit_textarea = lv_textarea_create(main_page);
-    lv_obj_set_size(edit_textarea, lv_pct(80), lv_pct(80));
+    lv_obj_set_size(edit_textarea, lv_pct(80), lv_pct(50));
     lv_obj_add_event_cb(edit_textarea, edit_textarea_event_cb, LV_EVENT_ALL, NULL);
+
+    lv_obj_t *label = lv_label_create(main_page);
+#if DEVICE_KEYBOARD_TYPE == KEYBOARD_TYPE_1
+    lv_label_set_text(label, "<Orange button on the left> + B = On/Off Backlight\n"
+                             "<Middle orange button> + Key = Symbol Mode\n"
+                             "CAP + Key = Capitalize");
+#elif DEVICE_KEYBOARD_TYPE == KEYBOARD_TYPE_2
+    lv_label_set_text(label, "Alt + B = On/Off Backlight\n"
+                             "Sym + Key = Symbol Mode\n"
+                             "ArrowUp + Key = Capitalize");
+#else
+    lv_label_set_text(label, "Keyboard instructions not available for this device.");
+#endif
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_14, 0);
+
     lv_menu_set_page(menu, main_page);
 
 #ifdef USING_TOUCHPAD
@@ -86,6 +101,9 @@ void ui_keyboard_enter(lv_obj_t *parent)
     }, NULL);
 #endif
 
+#if defined(USING_INPUT_DEV_KEYBOARD) && !defined(USING_INPUT_DEV_ROTARY)
+    enable_keyboard();
+#endif
 }
 
 

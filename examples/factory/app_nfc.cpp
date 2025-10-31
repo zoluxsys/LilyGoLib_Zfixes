@@ -21,10 +21,11 @@ static NdefClass        ndef(&NFCReader);
 static NFCReaderState   state = ST_POLLING;
 static notify_callback_t ndef_notify_cb = NULL;
 static ndef_event_callback_t ndef_event_cb = NULL;
+static bool _nfc_running = false;
 
 static ReturnCode ndefRecordDumpType(const ndefRecord *record);
 static ReturnCode ndefRtdDeviceInfoDump(const ndefType *devInfo, ndefTypeRtdDeviceInfo *devInfoData);
-static ReturnCode ndefRtdTextDump(const ndefType *text, ndefRtdText * rtdText);
+static ReturnCode ndefRtdTextDump(const ndefType *text, ndefRtdText *rtdText);
 static ReturnCode ndefRtdUriDump(const ndefType *uri, ndefRtdUri *rtdUri);
 static ReturnCode ndefRtdAarDump(const ndefType *aar, ndefConstBuffer *bufAarString);
 static ReturnCode ndefMediaWifiDump(const ndefType *wifi, ndefTypeWifi *wifiConfig);
@@ -111,7 +112,7 @@ static void demoNotif(rfalNfcState st )
         NFCReader.rfalNfcDeactivate(true);
         NFCReader.rfalNfcaPollerSleep();
 
-#if POLLING
+#ifdef POLLING
         rfalNfcaSensRes       sensRes;
         rfalNfcaSelRes        selRes;
         rfalNfcDevice *nfcDev;
@@ -141,7 +142,8 @@ uint32_t interval = 0;
 
 void loopNFCReader()
 {
-#if POLLING
+    if (!_nfc_running)return;
+#ifdef POLLING
     NFCReader.rfalNfcWorker();
 #else
     switch (state) {
@@ -154,22 +156,23 @@ void loopNFCReader()
         rfalNfcDevice   *nfcDev;
         NFCReader.rfalNfcGetActiveDevice(&nfcDev);
         NFCReader.rfalNfcaPollerInitialize();
-        if (NFCReader.rfalNfcaPollerCheckPresence(RFAL_14443A_SHORTFRAME_CMD_WUPA, &sensRes) == ST_ERR_NONE) {
+        ReturnCode err = NFCReader.rfalNfcaPollerCheckPresence(RFAL_14443A_SHORTFRAME_CMD_WUPA, &sensRes);
+        if (err == ST_ERR_NONE) {
             if (((nfcDev->dev.nfca.type == RFAL_NFCA_T1T) && (!rfalNfcaIsSensResT1T(&sensRes))) ||
-                    ((nfcDev->dev.nfca.type != RFAL_NFCA_T1T) &&
-                     (NFCReader.rfalNfcaPollerSelect(nfcDev->dev.nfca.nfcId1, nfcDev->dev.nfca.nfcId1Len, &selRes) != ST_ERR_NONE))) {
+                    ((nfcDev->dev.nfca.type != RFAL_NFCA_T1T) && (NFCReader.rfalNfcaPollerSelect(nfcDev->dev.nfca.nfcId1, nfcDev->dev.nfca.nfcId1Len, &selRes) != ST_ERR_NONE))) {
                 state = ST_POLLING;
                 Serial.println("Start discovery");
-                // break;
                 return ;
             }
             if (millis() > interval) {
                 Serial.println("Operation completed,Tag can be removed from the field");
                 interval = millis() + 1000;
             }
-            // Serial.println(".");
             NFCReader.rfalNfcaPollerSleep();
-            // delay(130);
+        } else if (err == ST_ERR_TIMEOUT) {
+            state = ST_POLLING;
+            Serial.println("Start discovery");
+            return ;
         }
     }
     break;
@@ -439,7 +442,6 @@ static ReturnCode ndefRtdDeviceInfoDump(const ndefType *devInfo, ndefTypeRtdDevi
     ndef.ndefGetRtdDeviceInfo(devInfo, devInfoData);
 
 #ifdef DEBUG_NDEF
-
     uint32_t type;
     uint32_t i;
     const uint8_t *ndefDeviceInfoName[] = {
@@ -472,7 +474,7 @@ static ReturnCode ndefRtdDeviceInfoDump(const ndefType *devInfo, ndefTypeRtdDevi
     return ST_ERR_NONE;
 }
 
-static ReturnCode ndefRtdTextDump(const ndefType *text, ndefRtdText * rtdText)
+static ReturnCode ndefRtdTextDump(const ndefType *text, ndefRtdText *rtdText)
 {
 
     if (text == NULL || rtdText == NULL ) {
@@ -487,7 +489,7 @@ static ReturnCode ndefRtdTextDump(const ndefType *text, ndefRtdText * rtdText)
 #ifdef DEBUG_NDEF
     ndefBufferPrint(" Text: \"", &rtdText->bufSentence, "");
     Serial.print("\" (");
-    Serial.print((utfEncoding == TEXT_ENCODING_UTF8 ? "UTF8" : "UTF16"));
+    Serial.print((rtdText->utfEncoding == TEXT_ENCODING_UTF8 ? "UTF8" : "UTF16"));
     Serial.print(",");
     ndefBuffer8Print(" language code \"", &rtdText->bufLanguageCode, "\")\r\n");
 #endif
@@ -665,14 +667,6 @@ bool beginNFC(notify_callback_t notify_cb, ndef_event_callback_t event_cb)
     bool res = false;
     ndef_notify_cb = notify_cb;
     ndef_event_cb = event_cb;
-    Serial.print("Initializing NFC: ");
-    res = NFCReader.rfalNfcInitialize() == ST_ERR_NONE;
-    if (!res) {
-        Serial.println("Failed to find NFC Reader - check your wiring!");
-        return false;
-    } else {
-        Serial.println("Initializing NFC Reader succeeded");
-    }
     rfalNfcDiscoverParam discover_params;
     discover_params.devLimit = 1;
     discover_params.techs2Find = RFAL_NFC_POLL_TECH_A;
@@ -680,9 +674,24 @@ bool beginNFC(notify_callback_t notify_cb, ndef_event_callback_t event_cb)
     discover_params.notifyCb = demoNotif;
     discover_params.totalDuration = 1000U;
     discover_params.wakeupEnabled = false;
-    Serial.print("Starting discovery mode: ");
-    Serial.println(NFCReader.rfalNfcDiscover(&discover_params));
+    Serial.print("Starting discovery ");
+    // Reinitialize NFC reader
+    NFCReader.rfalNfcInitialize();
+    if (NFCReader.rfalNfcDiscover(&discover_params) != ST_ERR_NONE) {
+        Serial.println("failed!");
+        return false;
+    }
+    Serial.println("success.");
+    state = ST_POLLING;
+    _nfc_running = true;
+    NFCReader.rfalNfcDeactivate(true);
     return true;
+}
+
+void deinitNFC()
+{
+    NFCReader.rfalNfcDeactivate(false);
+    _nfc_running = false;
 }
 
 #endif /*ARDUINO*/

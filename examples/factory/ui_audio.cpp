@@ -8,7 +8,11 @@
  */
 #include "ui_define.h"
 
-vector <string>music_list;
+#ifdef USING_AUDIO_CODEC
+#define HAS_VOLUME_SLIDER
+#endif
+
+static vector<AudioParams_t> music_list;
 static lv_timer_t *timer = NULL;
 static lv_obj_t *last_play_obj = NULL;
 static lv_obj_t *menu = NULL;
@@ -40,15 +44,13 @@ static void audio_play_event(lv_event_t *e)
     lv_obj_t *symbol = (lv_obj_t *)lv_event_get_user_data(e);
     if (code == LV_EVENT_CLICKED) {
         lv_obj_t *list = lv_obj_get_parent(obj);
-        const char *item = lv_list_get_btn_text(list, obj);
-
+        const char *item = lv_list_get_button_text(list, obj);
         char *text = lv_label_get_text(symbol);
-        if (strcmp(text, LV_SYMBOL_PLAY) == 0) {
 
+        if (strcmp(text, LV_SYMBOL_PLAY) == 0) {
             if (last_play_obj != NULL) {
                 lv_label_set_text(last_play_obj, LV_SYMBOL_PLAY);
             }
-
             if (last_play_obj == symbol) {
                 lv_label_set_text(symbol, LV_SYMBOL_PAUSE);
                 hw_set_sd_music_resume();
@@ -56,9 +58,12 @@ static void audio_play_event(lv_event_t *e)
             } else {
                 lv_label_set_text(symbol, LV_SYMBOL_PAUSE);
                 last_play_obj = symbol;
-                hw_set_sd_music_play(item);
+                
+                AudioParams_t param = *(AudioParams_t *)lv_obj_get_user_data(obj);
+                hw_set_sd_music_play(param.source_type, param.file_name.c_str());
+
                 if (item) {
-                    printf("%s\n", item);
+                    printf("Click %s source :%d  obj:%p \n", item, param.source_type, obj);
                 }
 
                 if (timer) {
@@ -82,6 +87,16 @@ static void audio_play_event(lv_event_t *e)
     }
 }
 
+static void volume_slider_event(lv_event_t *e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t *obj = (lv_obj_t *)lv_event_get_target(e);
+    if (code == LV_EVENT_VALUE_CHANGED) {
+        int16_t v = lv_slider_get_value(obj);
+        printf("Volume: %d\n", v);
+        hw_set_volume(v);
+    }
+}
 
 void ui_audio_enter(lv_obj_t *parent)
 {
@@ -90,9 +105,10 @@ void ui_audio_enter(lv_obj_t *parent)
 
 
     lv_obj_t *main_page = lv_menu_page_create(menu, NULL);
+    lv_obj_set_scrollbar_mode(main_page, LV_SCROLLBAR_MODE_OFF);
     lv_obj_set_size(main_page, lv_pct(100), lv_pct(100));
 
-    hw_get_sd_music(music_list);
+    hw_get_filesystem_music(music_list);
 
     if (!music_list.size()) {
         lv_obj_t *cont = lv_obj_create(main_page);
@@ -111,9 +127,9 @@ void ui_audio_enter(lv_obj_t *parent)
         lv_obj_set_width(label, LV_PCT(80));
 
 #ifdef HAS_SD_CARD_SOCKET
-        lv_label_set_text(label, "No MP3 or WAV files found.\nPlease put the audio files into the SD card.");
+        lv_label_set_text(label, "No MP3 files found.\nPlease put the audio files into the SD card.");
 #else
-        lv_label_set_text(label, "No MP3 or WAV file found in the file system");
+        lv_label_set_text(label, "No MP3 file found in the file system");
 #endif
 
         lv_menu_set_page(menu, main_page);
@@ -130,19 +146,56 @@ void ui_audio_enter(lv_obj_t *parent)
 
     /*Create a list*/
     lv_obj_t *list1 = lv_list_create(main_page);
+    lv_obj_set_style_border_width(list1, 0, LV_PART_MAIN);
+#ifdef HAS_VOLUME_SLIDER
+    lv_obj_set_size(list1, lv_pct(100), lv_pct(70));
+#else
     lv_obj_set_size(list1, lv_pct(100), lv_pct(100));
+#endif
     lv_obj_center(list1);
 
     /*Add buttons to the list*/
     lv_obj_t *obj, *label;
-    lv_list_add_text(list1, "File");
-
-    for (auto file : music_list) {
-        obj = lv_list_add_btn(list1, LV_SYMBOL_AUDIO, file.c_str());
+    int index = 0;
+    for (auto file_info : music_list) {
+        string file_name = file_info.source_type == AUDIO_SOURCE_SDCARD ? "[SD]" : "[FFat]";
+        file_name += file_info.file_name;
+        obj = lv_list_add_button(list1, LV_SYMBOL_AUDIO, file_name.c_str());
+        printf("Add file: %s source:%d obj:%p\n", file_name.c_str(), file_info.source_type, obj);
+        lv_obj_set_user_data(obj, &(music_list[index]));
+        index++;
         label = lv_label_create(obj);
         lv_label_set_text(label, LV_SYMBOL_PLAY);
         lv_obj_add_event_cb(obj, audio_play_event, LV_EVENT_CLICKED, label);
     }
+
+#ifdef HAS_VOLUME_SLIDER
+
+    obj = lv_menu_cont_create(main_page);
+    lv_obj_set_style_pad_all(obj, 0, LV_PART_MAIN);
+    lv_obj_set_size(obj, lv_pct(100), lv_pct(30));
+
+    lv_obj_set_flex_flow(obj, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(obj, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_t *sub_cont = lv_obj_create(obj);
+    lv_obj_set_size(sub_cont, lv_pct(100), lv_pct(100));
+    lv_obj_set_flex_flow(sub_cont, LV_FLEX_FLOW_ROW);
+    lv_obj_set_align(sub_cont, LV_ALIGN_TOP_LEFT);
+    lv_obj_set_style_border_width(sub_cont, 0, LV_PART_MAIN);
+
+    lv_obj_t *label_vol = lv_label_create(sub_cont);
+    lv_label_set_text(label_vol, LV_SYMBOL_VOLUME_MAX);
+    lv_obj_set_style_margin_right(label_vol, 20, LV_PART_MAIN);
+    lv_obj_set_style_margin_top(label_vol, -4, LV_PART_MAIN);
+
+    lv_obj_t *slider = lv_slider_create(sub_cont);
+    lv_obj_set_width(slider, lv_pct(80));
+    lv_obj_set_align(slider, LV_ALIGN_RIGHT_MID);
+    lv_obj_add_event_cb(slider, volume_slider_event, LV_EVENT_VALUE_CHANGED, NULL);
+
+#endif
+
     lv_menu_set_page(menu, main_page);
 
 

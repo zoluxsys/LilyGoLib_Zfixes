@@ -247,7 +247,7 @@ static lv_obj_t *create_subpage_info(lv_obj_t *menu, lv_obj_t *main_page)
     label = lv_label_create(btn);
     lv_label_set_text(label, wifi_ssid.c_str());
 
-    btn = lv_list_add_btn(list1, LV_SYMBOL_WIFI, "RTC Datetime");
+    btn = lv_list_add_btn(list1, LV_SYMBOL_BELL, "RTC Datetime");
     label = lv_label_create(btn);
     lv_label_set_text(label, "00:00:00");
     sys_label.datetime_label = label;
@@ -284,16 +284,32 @@ static lv_obj_t *create_subpage_info(lv_obj_t *menu, lv_obj_t *main_page)
         lv_label_set_text(label, "N.A");
     }
 
-    btn = lv_list_add_btn(list1, LV_SYMBOL_EYE_OPEN, "lvgl");
+    btn = lv_list_add_btn(list1, LV_SYMBOL_EYE_OPEN, "LVGL Version");
     label = lv_label_create(btn);
     lv_label_set_text_fmt(label, "V%d.%d.%d", lv_version_major(), lv_version_minor(), lv_version_patch());
 
 
     string ver;
     hw_get_arduino_version(ver);
-    btn = lv_list_add_btn(list1, LV_SYMBOL_EYE_OPEN, "arduino");
+    btn = lv_list_add_btn(list1, LV_SYMBOL_EYE_OPEN, "Arduino Core");
     label = lv_label_create(btn);
     lv_label_set_text(label, ver.c_str());
+
+
+    btn = lv_list_add_btn(list1, LV_SYMBOL_EYE_OPEN, "Build Time");
+    label = lv_label_create(btn);
+    lv_label_set_text(label, __DATE__ " " __TIME__);
+
+    btn = lv_list_add_btn(list1, LV_SYMBOL_EYE_OPEN, "Hash");
+    label = lv_label_create(btn);
+    lv_obj_set_width(label, lv_pct(60));
+    lv_label_set_long_mode(label, LV_LABEL_LONG_SCROLL);
+    lv_label_set_text(label, hw_get_firmware_hash_string());
+
+
+    btn = lv_list_add_btn(list1, LV_SYMBOL_EYE_OPEN, "Chip ID");
+    label = lv_label_create(btn);
+    lv_label_set_text(label, hw_get_chip_id_string());
 
     lv_menu_set_load_page_event(menu, cont, sub_page);
 

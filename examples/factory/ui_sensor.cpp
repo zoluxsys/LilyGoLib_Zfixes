@@ -49,6 +49,7 @@ void ui_sensor_enter(lv_obj_t *parent)
 
     menu = create_menu(parent, back_event_handler);
     lv_obj_t *main_page = lv_menu_page_create(menu, NULL);
+    lv_obj_set_scrollbar_mode(main_page, LV_SCROLLBAR_MODE_OFF);
 
 #if  defined(USING_BHI260_SENSOR)
     lv_obj_t *arc = lv_arc_create(main_page);

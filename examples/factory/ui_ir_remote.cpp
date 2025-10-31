@@ -24,6 +24,7 @@ static void back_event_handler(lv_event_t *e)
 
 static void send_event_handler(lv_event_t *e)
 {
+    hw_feedback();
     hw_set_remote_code(nec_code);
 }
 
