@@ -79,7 +79,7 @@ typedef struct {
        .audio_format = WAVE_FORMAT_PCM, /* 1 for PCM */                                                                                         \
        .num_of_channels = (uint16_t)(wav_channel_num),                                                                                          \
        .sample_rate = (wav_sample_rate),                                                                                                        \
-       .byte_rate = (wav_sample_bits) * (wav_sample_rate) * (wav_channel_num) / 8,                                                              \
+       .byte_rate = (uint32_t)((wav_sample_bits) * (wav_sample_rate) * (wav_channel_num) / 8),                                                              \
        .block_align = (uint16_t)((wav_sample_bits) * (wav_channel_num) / 8),                                                                    \
        .bits_per_sample = (uint16_t)(wav_sample_bits)},                                                                                         \
     .data_chunk = {                                                                                                                             \
