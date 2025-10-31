@@ -106,3 +106,6 @@ lv_obj_t *create_radius_button(lv_obj_t *parent, const void *image, lv_event_cb_
 
 #endif
 
+#ifndef M_PI
+#define M_PI		3.14159265358979323846
+#endif
