@@ -28,7 +28,7 @@ typedef enum {
     KEYBOARD_TYPE_NONE,
     KEYBOARD_TYPE_1,
     KEYBOARD_TYPE_2,
-}keyboard_type_t;
+} keyboard_type_t;
 
 
 /* Radio frequency constants */
@@ -558,7 +558,7 @@ void hw_mount_sd();
  *
  * @param list A reference to an AudioParams_t structure where the music file list will be stored.
  */
-void hw_get_filesystem_music(vector<AudioParams_t>  &list);
+void hw_get_filesystem_music(vector < AudioParams_t >  &list);
 
 /*
 * @brief Start playing a music file from the SD card.
@@ -591,6 +591,12 @@ bool hw_player_running();
  * @param volume The volume level to set (0-100).
  */
 void hw_set_volume(uint8_t volume);
+
+/**
+ * @brief  Get the current volume level.
+ * @retval Current volume level
+ */
+uint8_t hw_get_volume();
 
 /**
  * @brief Stop the music playback.
@@ -1423,6 +1429,13 @@ const char *hw_get_firmware_hash_string();
  */
 const char *hw_get_chip_id_string();
 
+/**
+* @brief Sets the RF switch to either a USB interface or the built-in antenna.
+* * This function sets the RF switch to either a USB LoRa interface or the built-in LoRa antenna based on the 'to_usb' parameter.
+* * @param to_usb If True, the RF switch is set to a USB LoRa interface; if false, it is set to the built-in LoRa antenna.
+*/
+void hw_set_usb_rf_switch(bool to_usb);
+
 #if defined(ARDUINO_T_LORA_PAGER)
 #define USING_BLE_KEYBOARD
 #define  FLOAT_BUTTON_WIDTH  40
@@ -1456,6 +1469,10 @@ const char *hw_get_chip_id_string();
 #endif
 #ifndef USING_ST25R3916
 #define USING_ST25R3916
+#endif
+
+#ifndef HAS_USB_RF_SWITCH
+#define HAS_USB_RF_SWITCH
 #endif
 
 #define NFC_TIPS_STRING "Hold the NFC card close to the front of the screen. It will vibrate when the card is detected; otherwise, it will not display anything if it cannot be resolved."

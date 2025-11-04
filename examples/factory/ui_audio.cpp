@@ -192,6 +192,7 @@ void ui_audio_enter(lv_obj_t *parent)
     lv_obj_t *slider = lv_slider_create(sub_cont);
     lv_obj_set_width(slider, lv_pct(80));
     lv_obj_set_align(slider, LV_ALIGN_RIGHT_MID);
+    lv_slider_set_value(slider, hw_get_volume(), LV_ANIM_OFF);
     lv_obj_add_event_cb(slider, volume_slider_event, LV_EVENT_VALUE_CHANGED, NULL);
 
 #endif

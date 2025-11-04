@@ -426,7 +426,7 @@ static void hw_device_poll(lv_timer_t *t)
     monitor_params_t params;
     hw_get_monitor_params(params);
     if (params.battery_voltage < 3300 && params.usb_voltage == 0) {
-        printf("Low battery voltage: %.2f V\n", params.battery_voltage);
+        printf("Low battery voltage: %lu mV USB Voltage: %lu mV\n", params.battery_voltage, params.usb_voltage);
         lv_obj_clean(lv_screen_active());
         lv_obj_set_style_bg_color(lv_screen_active(), lv_color_black(), LV_PART_MAIN);
         lv_obj_set_style_radius(lv_screen_active(), 0, 0);
@@ -529,6 +529,9 @@ void setupGui()
     lv_obj_set_style_text_color(start_logo, lv_color_white(), LV_PART_MAIN);
     lv_obj_center(start_logo);
     lv_refr_now(NULL);
+    lv_delay_ms(5000);
+    lv_obj_delete(start_logo);
+
 
     disable_keyboard();
 
@@ -553,7 +556,6 @@ void setupGui()
 
     /* opening animation */
     main_screen = lv_tileview_create(lv_screen_active());
-    lv_obj_add_flag(main_screen, LV_OBJ_FLAG_HIDDEN);
 
     lv_obj_align(main_screen, LV_ALIGN_TOP_RIGHT, 0, 0);
     lv_obj_set_size(main_screen, LV_PCT(100), LV_PCT(100));
@@ -700,10 +702,6 @@ void setupGui()
     // Allow low power mode
     set_low_power_mode_flag(true);
     lv_display_trigger_activity(NULL);
-
-
-    lv_delay_ms(5000);
-    lv_obj_remove_flag(main_screen, LV_OBJ_FLAG_HIDDEN);
 }
 
 

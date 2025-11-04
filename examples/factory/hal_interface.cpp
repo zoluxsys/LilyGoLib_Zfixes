@@ -1278,6 +1278,15 @@ void hw_set_volume(uint8_t volume)
 #endif //USING_AUDIO_CODEC
 }
 
+uint8_t hw_get_volume()
+{
+#if defined(ARDUINO) && defined(USING_AUDIO_CODEC)
+    return instance.codec.getVolume();
+#else
+    return 100;
+#endif //USING_AUDIO_CODEC
+}
+
 void hw_shutdown()
 {
 #ifdef ARDUINO
@@ -2113,7 +2122,12 @@ const char *hw_get_chip_id_string()
 }
 
 
-bool hw_get_enter_poweroff()
+void hw_set_usb_rf_switch(bool to_usb)
 {
-    return false;
+#ifdef ARDUINO
+#if defined(HAS_USB_RF_SWITCH)
+    instance.setRFSwitch(to_usb);
+#endif
+#endif
 }
+

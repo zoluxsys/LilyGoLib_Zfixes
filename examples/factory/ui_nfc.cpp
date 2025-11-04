@@ -84,8 +84,6 @@ void ui_nfc_enter(lv_obj_t *parent)
 {
     bool nfc_started = hw_start_nfc_discovery();
 
-    nfc_started = true;
-
     menu = create_menu(parent, back_event_handler);
     lv_menu_set_mode_root_back_btn(menu, LV_MENU_ROOT_BACK_BTN_ENABLED);
 

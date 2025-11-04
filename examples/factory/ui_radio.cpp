@@ -139,6 +139,15 @@ static void _ui_radio_obj_event(lv_event_t *e)
             break;
         }
         break;
+#ifdef HAS_USB_RF_SWITCH
+    case 'u':   //*usb/rf switch
+        if (selected == 0) {
+            hw_set_usb_rf_switch(false);
+        } else {
+            hw_set_usb_rf_switch(true);
+        }
+        break;
+#endif
     default:
         break;
     }
@@ -407,6 +416,18 @@ static void radio_timer_task(lv_timer_t *t)
     }
 }
 
+#ifdef HAS_USB_RF_SWITCH
+static lv_obj_t *create_usb_rf_dropdown(lv_obj_t *parent)
+{
+    static const char flag = 'u';
+    lv_obj_t *dd = lv_dropdown_create(parent);
+    lv_dropdown_set_options(dd, "Built-in\nUSB-If");
+    lv_obj_add_event_cb(dd, _ui_radio_obj_event, LV_EVENT_VALUE_CHANGED, (void *)&flag);
+    lv_dropdown_set_selected(dd, 0);
+    return dd;
+}
+#endif
+
 void ui_radio_enter(lv_obj_t *parent)
 {
     static const char flag = 'b';
@@ -418,6 +439,9 @@ void ui_radio_enter(lv_obj_t *parent)
     lv_obj_t *main_page = lv_menu_page_create(menu, NULL);
     ui_create_option(main_page, "State:", NULL, create_state_textarea, NULL);
     ui_create_option(main_page, "Mode:", NULL, create_mode_dropdown, NULL);
+#ifdef HAS_USB_RF_SWITCH
+    ui_create_option(main_page, "RF Switch:", NULL, create_usb_rf_dropdown, NULL);
+#endif
     ui_create_option(main_page, "Frequency:", NULL, create_frequency_dropdown, NULL);
     ui_create_option(main_page, "Bandwidth:", NULL, create_bandwidth_dropdown, NULL);
     ui_create_option(main_page, "TX Power:", NULL, create_tx_power_dropdown, NULL);
