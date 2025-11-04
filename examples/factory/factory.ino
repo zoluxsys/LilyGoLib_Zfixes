@@ -85,17 +85,6 @@ void setup()
     WiFi.setAutoReconnect(false);
     WiFi.disconnect(true);
 
-#ifdef ARDUINO_T_LORA_PAGER
-    extern const uint8_t img_logo_480x222_map[213120];
-    instance.setBootImage((uint8_t*)img_logo_480x222_map);
-#endif
-
-#ifdef ARDUINO_T_WATCH_S3_ULTRA
-    // TODO:
-    // extern const uint8_t img_logo_480x222_map[213120];
-    // instance.setBootImage(img_logo_480x222_map);
-#endif
-
     instance.begin(/*NO_HW_LORA|NO_HW_RTC|NO_HW_GPS|NO_HW_LORA*/);
 
 #ifdef USING_INPUT_DEV_KEYBOARD
