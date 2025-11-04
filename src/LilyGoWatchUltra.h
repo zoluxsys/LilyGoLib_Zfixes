@@ -280,9 +280,9 @@ public:
      * @brief Set the display rotation.
      *
      * This function sets the rotation of the display. The 'rotation' parameter specifies the rotation value.
-     * 
+     *
      * Can't set rotation 90° or 270°
-     * 
+     *
      * @param rotation The rotation value to set.
      */
     void setRotation(uint8_t rotation) override;
@@ -506,7 +506,10 @@ public:
      *
      * @return uint8_t The number of codec input channels.
      */
-    uint8_t getCodecInputChannels(){ return 1; };
+    uint8_t getCodecInputChannels()
+    {
+        return 1;
+    };
 
     /**
      * @brief Get the number of codec audio output channels.(Speaker)
@@ -515,7 +518,10 @@ public:
      *
      * @return uint8_t The number of codec audio output channels.
      */
-    uint8_t getCodecOutputChannels(){ return 1; };
+    uint8_t getCodecOutputChannels()
+    {
+        return 1;
+    };
 
     /**
      * @brief Get the maximum display brightness level.
@@ -524,7 +530,18 @@ public:
      *
      * @return uint8_t The maximum display brightness level.
      */
-    uint8_t getDisplayBrightnessMaxLevel(){ return 255; };
+    uint8_t getDisplayBrightnessMaxLevel()
+    {
+        return 255;
+    };
+
+
+    /**
+    * @brief Sets the RF switch to either a USB interface or the built-in antenna.
+    * * This function sets the RF switch to either a USB LoRa interface or the built-in LoRa antenna based on the 'to_usb' parameter.
+    * * @param to_usb If True, the RF switch is set to a USB LoRa interface; if false, it is set to the built-in LoRa antenna.
+    */
+    void setRFSwitch(bool to_usb);
 
 private:
     /**

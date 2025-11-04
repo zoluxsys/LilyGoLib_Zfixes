@@ -323,6 +323,8 @@ uint32_t LilyGoUltra::begin(uint32_t disable_hw_init)
         } else {
             log_e("Radio init failed, code :%d", state);
         }
+
+        setRFSwitch(false); // Default to Built-in LoRa antenna
     }
 
     if (!(disable_hw_init & NO_HW_SD)) {
@@ -1267,6 +1269,19 @@ bool LilyGoUltra::lockSPI(TickType_t xTicksToWait)
 void LilyGoUltra::unlockSPI()
 {
     xSemaphoreGive(_lock);
+}
+
+
+void LilyGoUltra::setRFSwitch(bool to_usb)
+{
+    io.pinMode(EXPANDS_LORA_RF_SW, OUTPUT);
+    if (to_usb) {
+        log_d("Set RF Switch to USB Iface");
+        io.digitalWrite(EXPANDS_LORA_RF_SW, HIGH); // to USB
+    } else {
+        log_d("Set RF Switch to Built-in LoRa Antenna");
+        io.digitalWrite(EXPANDS_LORA_RF_SW, LOW); // to Built-in LoRa antenna
+    }
 }
 
 LilyGoUltra instance;
