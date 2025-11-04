@@ -118,7 +118,7 @@ static void keypad_read(lv_indev_t *drv, lv_indev_data_t *data)
 }
 #endif //USING_INPUT_DEV_KEYBOARD
 
-static uint32_t lv_tick_get_cb(void)
+static uint32_t lv_tick_get_callback(void)
 {
     return millis();
 }
@@ -274,7 +274,7 @@ void beginLvglHelper(LilyGo_Display &board, bool debug)
     }
 #endif //USING_INPUT_DEV_KEYBOARD
 
-    lv_tick_set_cb(lv_tick_get_cb);
+    lv_tick_set_cb(lv_tick_get_callback);
     lv_group_set_default(lv_group_create());
     log_d("lv init successfully!");
 }
