@@ -1,10 +1,10 @@
 /**
- * @file lv_demo_widgets.h
+ * @file lv_demo_widgets_shop.h
  *
  */
 
-#ifndef LV_DEMO_WIDGETS_H
-#define LV_DEMO_WIDGETS_H
+#ifndef LV_DEMO_WIDGETS_SHOP_H
+#define LV_DEMO_WIDGETS_SHOP_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,17 +14,7 @@ extern "C" {
  *      INCLUDES
  *********************/
 #include "lvgl.h"
-
-
 #if LV_USE_DEMO_WIDGETS
-
-#if LV_USE_GRID == 0
-#error "LV_USE_GRID needs to be enabled"
-#endif
-
-#if LV_USE_FLEX == 0
-#error "LV_USE_FLEX needs to be enabled"
-#endif
 
 /*********************
  *      DEFINES
@@ -37,17 +27,16 @@ extern "C" {
 /**********************
  * GLOBAL PROTOTYPES
  **********************/
-void lv_demo_widgets(void);
-void lv_demo_widgets_start_slideshow(void);
+void lv_demo_widgets_shop_create(lv_obj_t * parent);
 
 /**********************
  *      MACROS
  **********************/
 
-#endif /*LV_USE_DEMO_WIDGETS*/
+#endif /* LV_USE_DEMO_WIDGETS */
 
 #ifdef __cplusplus
-} /* extern "C" */
+} /*extern "C"*/
 #endif
 
-#endif /*LV_DEMO_WIDGETS_H*/
+#endif /*LV_DEMO_WIDGETS_SHOP_H*/

@@ -1,16 +1,5 @@
-#ifdef __has_include
-    #if __has_include("lvgl.h")
-        #ifndef LV_LVGL_H_INCLUDE_SIMPLE
-            #define LV_LVGL_H_INCLUDE_SIMPLE
-        #endif
-    #endif
-#endif
+#include "lvgl.h"
 
-#if defined(LV_LVGL_H_INCLUDE_SIMPLE)
-    #include "lvgl.h"
-#else
-    #include "lvgl/lvgl.h"
-#endif
 
 #if LV_USE_DEMO_WIDGETS
 
@@ -85,7 +74,7 @@ uint8_t img_clothes_map[] = {
 
 };
 
-const lv_img_dsc_t img_clothes = {
+const lv_image_dsc_t img_clothes = {
   .header.magic = LV_IMAGE_HEADER_MAGIC,
   .header.cf = LV_COLOR_FORMAT_ARGB8888,
   .header.flags = 0,
