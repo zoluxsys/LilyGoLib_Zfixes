@@ -707,6 +707,14 @@ size_t hw_get_ble_message(char *buffer, size_t buffer_size);
  */
 void hw_deinit_ble();
 
+
+/**
+ * @brief Get the BLE keyboard name.
+ *
+ * @return A pointer to the BLE keyboard name string.
+ */
+const char  *hw_get_ble_kb_name();
+
 /**
  * @brief Enable the BLE keyboard function.
  */

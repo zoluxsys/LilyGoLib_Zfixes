@@ -82,7 +82,7 @@ void ui_ble_kb_enter(lv_obj_t *parent)
 
     label = lv_label_create(cont2);
     lv_obj_set_style_text_font(label, &lv_font_montserrat_12, LV_PART_MAIN);
-    lv_label_set_text_fmt(label, "DeviceName: T-Pager-Lora");
+    lv_label_set_text_fmt(label, "DeviceName: %s", hw_get_ble_kb_name());
 
     label = lv_label_create(cont2);
     lv_obj_set_style_text_font(label, &lv_font_montserrat_12, LV_PART_MAIN);

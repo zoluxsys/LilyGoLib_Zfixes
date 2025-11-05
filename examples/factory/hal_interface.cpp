@@ -1602,15 +1602,20 @@ void hw_disable_ble()
 size_t hw_get_ble_message(char *buffer, size_t buffer_size)
 {
 #if  defined(ARDUINO) && defined(USING_UART_BLE)
-    return 0;
 #endif
+    return 0;
+}
+
+const char  *hw_get_ble_kb_name()
+{
+    return "Keyboard";
 }
 
 void hw_set_ble_kb_enable()
 {
 #if defined(ARDUINO) && defined(USING_BLE_KEYBOARD)
 #ifdef CONFIG_BLE_KEYBOARD
-    bleKeyboard.setName(hw_get_variant_name());
+    bleKeyboard.setName("Keyboard");
     bleKeyboard.begin();
 #endif
 #endif
