@@ -286,12 +286,12 @@ void uploadLink()
         }
 
         uint32_t networkTime = 0;
-        uint8_t fracSecond = 0;
-        if (node.getMacDeviceTimeAns(&networkTime, &fracSecond, true) == RADIOLIB_ERR_NONE) {
+        uint16_t milliseconds = 0;
+        if (node.getMacDeviceTimeAns(&networkTime, &milliseconds, true) == RADIOLIB_ERR_NONE) {
             Serial.print(F("[LoRaWAN] DeviceTime Unix:\t"));
             Serial.println(networkTime);
             Serial.print(F("[LoRaWAN] DeviceTime second:\t1/"));
-            Serial.println(fracSecond);
+            Serial.println(milliseconds);
         }
 
     } else {
