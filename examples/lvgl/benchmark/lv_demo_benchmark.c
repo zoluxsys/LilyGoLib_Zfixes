@@ -448,14 +448,17 @@ static void containers_with_scrolling_cb(void)
     scroll_anim(scr, lv_obj_get_scroll_bottom(scr));
 }
 
+#include "lv_demo_widgets.h"
+
 static void widgets_demo_cb(void)
 {
     lv_obj_t * scr = lv_screen_active();
     lv_obj_set_style_pad_hor(scr, 0, 0);
     lv_obj_set_style_pad_bottom(scr, 0, 0);
+#if LV_USE_DEMO_WIDGETS
     lv_demo_widgets();
     lv_demo_widgets_start_slideshow();
-
+#endif
 }
 
 /**********************
