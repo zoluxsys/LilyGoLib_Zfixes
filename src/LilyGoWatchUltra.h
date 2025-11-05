@@ -37,6 +37,10 @@
 
 #define newModule()   new Module(LORA_CS,LORA_IRQ,LORA_RST,LORA_BUSY)
 
+#ifndef EXPANDS_LORA_RF_SW
+#define EXPANDS_LORA_RF_SW      (11)
+#endif
+
 /*
 | I2C Devices                                                                                      | 7-Bit Address |
 | ------------------------------------------------------------------------------------------------ | ------------- |
