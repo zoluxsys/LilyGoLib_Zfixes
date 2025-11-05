@@ -59,21 +59,6 @@ static bool                  pps_trigger = false;
 #define FILESYSTEM                  FFat
 #endif
 
-#include <BLEDevice.h>
-#if  defined(ARDUINO) && defined(USING_UART_BLE)
-#include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
-
-#define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E" // UART service UUID
-#define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
-#define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
-
-static BLEServer *pServer = NULL;
-static BLECharacteristic *pTxCharacteristic;
-static bool deviceConnected = false;
-#endif
-
 #if defined(USING_BLE_KEYBOARD)
 #include <BleKeyboard.h>
 BleKeyboard bleKeyboard;
@@ -1594,101 +1579,29 @@ void hw_unregister_imu_process()
 
 //* ble //
 
-#if  defined(ARDUINO) && defined(USING_UART_BLE)
-static cbuf ble_message(256);
-class MyServerCallbacks: public BLEServerCallbacks
-{
-    void onConnect(BLEServer *pServer)
-    {
-        deviceConnected = true;
-    };
-
-    void onDisconnect(BLEServer *pServer)
-    {
-        deviceConnected = false;
-        pServer->startAdvertising();
-    }
-};
-
-class MyCallbacks: public BLECharacteristicCallbacks
-{
-    void onWrite(BLECharacteristic *pCharacteristic)
-    {
-        String rxValue = pCharacteristic->getValue();
-
-        if (rxValue.length() > 0) {
-            Serial.println("*********");
-            Serial.print("Received Value: ");
-            for (int i = 0; i < rxValue.length(); i++) {
-                Serial.print(rxValue[i]);
-            }
-            Serial.println();
-            Serial.println("*********");
-
-            ble_message.write(rxValue.c_str(), rxValue.length());
-        }
-    }
-};
-#endif
-
 void hw_enable_ble(const char *devName)
 {
 #if  defined(ARDUINO) && defined(USING_UART_BLE)
-    static bool isEnableBle = false;
-    if (!isEnableBle) {
-        uint64_t chipmacid = 0LL;
-        esp_efuse_mac_get_default((uint8_t *)(&chipmacid));
-        // Create the BLE Device
-        String name = devName + String("_") + String((chipmacid >> 8) & 0xFF) + String("_") + String(chipmacid & 0xFF) ;
-        BLEDevice::init(name);
-        // Create the BLE Server
-        pServer = BLEDevice::createServer();
-        pServer->setCallbacks(new MyServerCallbacks());
-        // Create the BLE Service
-        BLEService *pService = pServer->createService(SERVICE_UUID);
-        // Create a BLE Characteristic
-        pTxCharacteristic = pService->createCharacteristic(CHARACTERISTIC_UUID_TX, BLECharacteristic::PROPERTY_NOTIFY);
-        pTxCharacteristic->addDescriptor(new BLE2902());
-        BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(CHARACTERISTIC_UUID_RX,
-                                               BLECharacteristic::PROPERTY_WRITE);
-        pRxCharacteristic->setCallbacks(new MyCallbacks());
-        // Start the service
-        pService->start();
-    }
-    // Start advertising
-    pServer->getAdvertising()->start();
-
 #endif
 }
 
 void hw_deinit_ble()
 {
 #if  defined(ARDUINO) && defined(USING_UART_BLE)
-    BLEDevice::deinit();
+
 #endif
 }
 
 void hw_disable_ble()
 {
 #if  defined(ARDUINO) && defined(USING_UART_BLE)
-    pServer->getAdvertising()->stop();
-    ble_message.remove(ble_message.available());
+
 #endif
 }
 
 size_t hw_get_ble_message(char *buffer, size_t buffer_size)
 {
 #if  defined(ARDUINO) && defined(USING_UART_BLE)
-    size_t size =  ble_message.available();
-    if (size) {
-        size_t read_size = size;
-        if (size > buffer_size) {
-            read_size = buffer_size;
-        }
-        ble_message.read(buffer, read_size);
-    }
-    return size;
-#else
     return 0;
 #endif
 }
