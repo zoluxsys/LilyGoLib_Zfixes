@@ -277,13 +277,17 @@ bool LilyGoWatch2022::initSensor()
 
     sensor.configInterrupt();
 
-    sensor.enableFeature(SensorBMA423::FEATURE_STEP_CNTR |
-                         SensorBMA423::FEATURE_ANY_MOTION |
-                         SensorBMA423::FEATURE_NO_MOTION |
-                         SensorBMA423::FEATURE_ACTIVITY |
-                         SensorBMA423::FEATURE_TILT |
-                         SensorBMA423::FEATURE_WAKEUP,
-                         true);
+    // According to the BMA423 datasheet the feature identifiers are
+    // enumerated values rather than bit flags.  Enabling multiple features
+    // therefore has to be done through individual calls instead of OR-ing
+    // the identifiers together (doing so would silently select an invalid
+    // feature index).  Configure the default feature set explicitly.
+    sensor.enableFeature(SensorBMA423::FEATURE_STEP_CNTR, true);
+    sensor.enableFeature(SensorBMA423::FEATURE_ANY_MOTION, true);
+    sensor.enableFeature(SensorBMA423::FEATURE_NO_MOTION, true);
+    sensor.enableFeature(SensorBMA423::FEATURE_ACTIVITY, true);
+    sensor.enableFeature(SensorBMA423::FEATURE_TILT, true);
+    sensor.enableFeature(SensorBMA423::FEATURE_WAKEUP, true);
 
 
     sensor.enablePedometerIRQ();
