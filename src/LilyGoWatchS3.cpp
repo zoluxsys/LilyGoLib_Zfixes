@@ -68,7 +68,7 @@ void LilyGoWatch2022::clearEventBits(const EventBits_t uxBitsToClear)
 
 void LilyGoWatch2022::setEventBits(const EventBits_t uxBitsToSet)
 {
-    xEventGroupClearBits(_event, uxBitsToSet);
+    xEventGroupSetBits(_event, uxBitsToSet);
 }
 
 const char *LilyGoWatch2022::getName()
@@ -277,13 +277,21 @@ bool LilyGoWatch2022::initSensor()
 
     sensor.configInterrupt();
 
-    sensor.enableFeature(SensorBMA423::FEATURE_STEP_CNTR |
-                         SensorBMA423::FEATURE_ANY_MOTION |
-                         SensorBMA423::FEATURE_NO_MOTION |
-                         SensorBMA423::FEATURE_ACTIVITY |
-                         SensorBMA423::FEATURE_TILT |
-                         SensorBMA423::FEATURE_WAKEUP,
-                         true);
+    // According to the BMA423 datasheet the feature identifiers are
+    // enumerated values rather than bit flags.  Enabling multiple features
+    // therefore has to be done through individual calls instead of OR-ing
+    // the identifiers together (doing so would silently select an invalid
+    // feature index).  Configure the default feature set explicitly.
+    //
+    // The datasheet also documents that FEATURE_ANY_MOTION and
+    // FEATURE_NO_MOTION share a single feature slot, so only one can be
+    // enabled at a time.  Keep FEATURE_ANY_MOTION enabled by default; code
+    // that needs the opposite behaviour can switch the feature after init.
+    sensor.enableFeature(SensorBMA423::FEATURE_STEP_CNTR, true);
+    sensor.enableFeature(SensorBMA423::FEATURE_ANY_MOTION, true);
+    sensor.enableFeature(SensorBMA423::FEATURE_ACTIVITY, true);
+    sensor.enableFeature(SensorBMA423::FEATURE_TILT, true);
+    sensor.enableFeature(SensorBMA423::FEATURE_WAKEUP, true);
 
 
     sensor.enablePedometerIRQ();
