@@ -6,7 +6,8 @@
  * @date      2024-07-07
  *
  */
-#include"GPS.h"
+#include "GPS.h"
+#include <cstring>
 
 struct uBloxGnssModelInfo { // Structure to hold the module info (uses 341 bytes of RAM)
     char softVersion[30];
@@ -16,7 +17,7 @@ struct uBloxGnssModelInfo { // Structure to hold the module info (uses 341 bytes
 } ;
 
 
-GPS::GPS() : model("Unkown")
+GPS::GPS() : model("Unknown")
 {
 }
 
@@ -70,7 +71,9 @@ bool GPS::init(Stream *stream)
             for (int i = 0; i < info.extensionNo; i++) {
                 log_i("%s", info.extension[i]);
             }
-            log_i("Model:%s", info.extension[2]);
+            if (info.extensionNo > 2) {
+                log_i("Model:%s", info.extension[2]);
+            }
 
             for (int i = 0; i < info.extensionNo; ++i) {
                 if (!strncmp(info.extension[i], "OD=", 3)) {
@@ -160,18 +163,35 @@ bool GPS::factory()
 
     uint8_t buffer[256];
     // Revert module Clear, save and load configurations
-    // B5 62 06 09 0D 00 FF FB 00 00 00 00 00 00  FF FF 00 00 17 2B 7E
-    uint8_t _legacy_message_reset[] = { 0xB5, 0x62, 0x06, 0x09, 0x0D, 0x00, 0xFF, 0xFB, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0xFF, 0xFF, 0x00, 0x00, 0x17, 0x2B, 0x7E };
-    _stream->write(_legacy_message_reset, sizeof(_legacy_message_reset));
-    if (!getAck(buffer, 256, 0x05, 0x01)) {
+    // B5 62 06 09 0D 00 FF FF 00 00 00 00 00 00 FF FF 00 00 17 2F AE
+    // Restore configuration to factory defaults using UBX-CFG-CFG as described in the
+    // u-blox MIA-M10Q datasheet (clearMask 0xFFFF, loadMask 0xFFFF, deviceMask 0x17).
+    uint8_t cfg_cfg_reset[] = {
+        0xB5, 0x62, 0x06, 0x09, 0x0D, 0x00,
+        0xFF, 0xFF, 0x00, 0x00,             // clearMask
+        0x00, 0x00, 0x00, 0x00,             // saveMask
+        0xFF, 0xFF, 0x00, 0x00,             // loadMask
+        0x17,                               // deviceMask (BBR, Flash, RAM)
+        0x2F, 0xAE                          // CK_A, CK_B
+    };
+    _stream->write(cfg_cfg_reset, sizeof(cfg_cfg_reset));
+    if (!getAck(buffer, sizeof(buffer), 0x05, 0x01) || buffer[0] != 0x06 || buffer[1] != 0x09) {
         return false;
     }
     delay(50);
 
     // UBX-CFG-RATE, Size 8, 'Navigation/measurement rate settings'
-    uint8_t cfg_rate[] = {0xB5, 0x62, 0x06, 0x08, 0x00, 0x00, 0x0E, 0x30};
+    // Configure the measurement rate to 1000 ms (1 Hz) with a navigation rate of 1 and
+    // GPS time reference, which matches the module defaults documented in the datasheet.
+    uint8_t cfg_rate[] = {
+        0xB5, 0x62, 0x06, 0x08, 0x06, 0x00,
+        0xE8, 0x03,                         // measRate = 1000 ms
+        0x01, 0x00,                         // navRate = 1
+        0x01, 0x00,                         // timeRef = GPS time
+        0x01, 0x39                          // CK_A, CK_B
+    };
     _stream->write(cfg_rate, sizeof(cfg_rate));
-    if (!getAck(buffer, 256, 0x06, 0x08)) {
+    if (!getAck(buffer, sizeof(buffer), 0x05, 0x01) || buffer[0] != 0x06 || buffer[1] != 0x08) {
         return false;
     }
     log_d("GPS reset successes!");
