@@ -37,6 +37,8 @@ LR1121 radio = newModule();
 Si4432 radio = newModule();
 #endif
 
+LilyGoWatch2022 *LilyGoWatch2022::_instance = nullptr;
+
 static bool _lock_callback(void)
 {
     return instance.lockSPI();
@@ -68,7 +70,7 @@ void LilyGoWatch2022::clearEventBits(const EventBits_t uxBitsToClear)
 
 void LilyGoWatch2022::setEventBits(const EventBits_t uxBitsToSet)
 {
-    xEventGroupClearBits(_event, uxBitsToSet);
+    xEventGroupSetBits(_event, uxBitsToSet);
 }
 
 const char *LilyGoWatch2022::getName()
@@ -405,74 +407,6 @@ uint8_t LilyGoWatch2022::getBrightness()
 void LilyGoWatch2022::setBrightness(uint8_t level)
 {
     LilyGoDispSPI::setBrightness(level);
-}
-
-void LilyGoWatch2022::decrementBrightness(uint8_t target_level, uint32_t delay_ms, bool async)
-{
-    if (!async) {
-        uint8_t brightness = getBrightness();
-        if (target_level > brightness)
-            return;
-        for (int i = brightness; i >= target_level; i--) {
-            setBrightness(i);
-            delay(delay_ms);
-        }
-        return;
-    }
-
-    static uint8_t pvTimerParams;
-    pvTimerParams = target_level;
-    if (!timerHandler) {
-        timerHandler = xTimerCreate("bri", pdMS_TO_TICKS(delay_ms), pdTRUE, &pvTimerParams, [](TimerHandle_t xTimer) {
-            uint8_t *target_level = (uint8_t *) pvTimerGetTimerID( xTimer );
-            uint8_t brightness = instance.getBrightness();
-            brightness--;
-            instance.setBrightness(brightness);
-            if (brightness <= *target_level ) {
-                xTimerStop(timerHandler, portMAX_DELAY);
-                xTimerDelete(timerHandler, portMAX_DELAY);
-                timerHandler = NULL;
-            }
-        });
-    }
-    if (xTimerIsTimerActive(timerHandler) == pdTRUE) {
-        return;
-    }
-    xTimerStart(timerHandler, portMAX_DELAY);
-
-}
-
-void LilyGoWatch2022::incrementalBrightness(uint8_t target_level, uint32_t delay_ms, bool async)
-{
-    if (!async) {
-        uint8_t brightness = getBrightness();
-        if (target_level < brightness)
-            return;
-        for (int i = brightness; i < target_level; i++) {
-            setBrightness(i);
-            delay(delay_ms);
-        }
-        return;
-    }
-    static uint8_t pvTimerParams;
-    pvTimerParams = target_level;
-    if (!timerHandler) {
-        timerHandler = xTimerCreate("bri", pdMS_TO_TICKS(delay_ms), pdTRUE, &pvTimerParams, [](TimerHandle_t xTimer) {
-            uint8_t *target_level = (uint8_t *) pvTimerGetTimerID( xTimer );
-            uint8_t brightness = instance.getBrightness();
-            brightness++;
-            instance.setBrightness(brightness);
-            if (brightness >= *target_level ) {
-                xTimerStop(timerHandler, portMAX_DELAY);
-                xTimerDelete(timerHandler, portMAX_DELAY);
-                timerHandler = NULL;
-            }
-        });
-    }
-    if (xTimerIsTimerActive(timerHandler) == pdTRUE) {
-        return;
-    }
-    xTimerStart(timerHandler, portMAX_DELAY);
 }
 
 /*
@@ -1066,7 +1000,15 @@ void LilyGoWatch2022::unlockSPI()
 
 }
 
-LilyGoWatch2022 instance;
+namespace
+{
+LilyGoWatch2022 &getInstanceRef()
+{
+    return *LilyGoWatch2022::getInstance();
+}
+}
+
+LilyGoWatch2022 &instance = getInstanceRef();
 
 #endif
 

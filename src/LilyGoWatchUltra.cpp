@@ -70,6 +70,7 @@ RfalNfcClass NFCReader(&nfc_hw);
 #endif
 
 EventGroupHandle_t LilyGoUltra::_event = NULL;
+LilyGoUltra *LilyGoUltra::_instance = nullptr;
 
 static bool _lock_callback(void)
 {
@@ -117,7 +118,7 @@ void LilyGoUltra::clearEventBits(const EventBits_t uxBitsToClear)
 
 void LilyGoUltra::setEventBits(const EventBits_t uxBitsToSet)
 {
-    xEventGroupClearBits(_event, uxBitsToSet);
+    xEventGroupSetBits(_event, uxBitsToSet);
 }
 
 void LilyGoUltra::setRotation(uint8_t rotation)
@@ -677,29 +678,6 @@ uint8_t LilyGoUltra::getBrightness()
 {
     return LilyGoDispQSPI::_brightness;
 }
-
-void LilyGoUltra::decrementBrightness(uint8_t target_level, uint32_t delay_ms, bool reserve)
-{
-    uint8_t brightness = getBrightness();
-    if (target_level > brightness)
-        return;
-    for (int i = brightness; i >= target_level; i--) {
-        setBrightness(i);
-        delay(delay_ms);
-    }
-}
-
-void LilyGoUltra::incrementalBrightness(uint8_t target_level, uint32_t delay_ms, bool reserve)
-{
-    uint8_t brightness = getBrightness();
-    if (target_level < brightness)
-        return;
-    for (int i = brightness; i < target_level; i++) {
-        setBrightness(i);
-        delay(delay_ms);
-    }
-}
-
 
 void LilyGoUltra::pushColors(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t *color)
 {
@@ -1314,6 +1292,14 @@ void LilyGoUltra::setRFSwitch(bool to_usb)
     }
 }
 
-LilyGoUltra instance;
+namespace
+{
+LilyGoUltra &getInstanceRef()
+{
+    return *LilyGoUltra::getInstance();
+}
+}
+
+LilyGoUltra &instance = getInstanceRef();
 
 #endif //ARDUINO_T_WATCH_S3_ULTRA

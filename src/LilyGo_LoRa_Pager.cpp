@@ -47,7 +47,7 @@ static TaskHandle_t  rotaryHandler = NULL;
 static EventGroupHandle_t  rotaryTaskFlag = NULL;
 static void rotaryTask(void *p);
 extern void setupMSC(lock_callback_t lock_cb, lock_callback_t ulock_cb);
-
+LilyGoLoRaPager *LilyGoLoRaPager::_instance = nullptr;
 
 #ifndef RADIOLIB_EXCLUDE_NRF24
 nRF24 nrf24 = new Module(44/*CS*/, 9/*IRQ*/, 43/*CE*/);
@@ -553,82 +553,6 @@ void LilyGoLoRaPager::setBrightness(uint8_t level)
 uint8_t LilyGoLoRaPager::getBrightness()
 {
     return backlight.getBrightness();
-}
-
-void LilyGoLoRaPager::decrementBrightness(uint8_t target_level, uint32_t delay_ms, bool async)
-{
-    if (target_level <= 0)target_level = 0;
-    if (target_level > 16)target_level = 16;
-
-    if (!async) {
-        uint8_t brightness = getBrightness();
-        if (target_level > brightness)
-            return;
-        for (int i = brightness; i >= target_level; i--) {
-            setBrightness(i);
-            delay(delay_ms);
-        }
-    } else {
-        // NO BLOCK
-        static uint8_t pvTimerParams;
-        pvTimerParams = target_level;
-        if (!timerHandler) {
-            timerHandler = xTimerCreate("bri", pdMS_TO_TICKS(delay_ms), pdTRUE, &pvTimerParams, [](TimerHandle_t xTimer) {
-                uint8_t *target_level = (uint8_t *) pvTimerGetTimerID( xTimer );
-                uint8_t brightness = instance.getBrightness();
-                brightness--;
-                instance.setBrightness(brightness);
-                if (brightness <= *target_level ) {
-                    xTimerStop(timerHandler, portMAX_DELAY);
-                    xTimerDelete(timerHandler, portMAX_DELAY);
-                    timerHandler = NULL;
-                }
-            });
-        }
-        if (xTimerIsTimerActive(timerHandler) == pdTRUE) {
-            return;
-        }
-        xTimerStart(timerHandler, portMAX_DELAY);
-    }
-}
-
-
-void LilyGoLoRaPager::incrementalBrightness(uint8_t target_level, uint32_t delay_ms, bool async)
-{
-    if (target_level <= 0)target_level = 0;
-    if (target_level > 16)target_level = 16;
-
-    if (!async) {
-        uint8_t brightness = getBrightness();
-        if (target_level < brightness)
-            return;
-        for (int i = brightness; i < target_level; i++) {
-            setBrightness(i);
-            delay(delay_ms);
-        }
-    } else {
-
-        // NO BLOCK
-        static uint8_t pvTimerParams;
-        pvTimerParams = target_level;
-        if (!timerHandler) {
-            timerHandler = xTimerCreate("bri", pdMS_TO_TICKS(delay_ms), pdTRUE, &pvTimerParams, [](TimerHandle_t xTimer) {
-                uint8_t *target_level = (uint8_t *) pvTimerGetTimerID( xTimer );
-                uint8_t brightness = instance.getBrightness();
-                brightness++;
-                instance.setBrightness(brightness);
-                if (brightness >= *target_level ) {
-                    xTimerStop(timerHandler, portMAX_DELAY);
-                    xTimerDelete(timerHandler, portMAX_DELAY);
-                    timerHandler = NULL;
-                }
-            });
-        }
-        if (xTimerIsTimerActive(timerHandler) == pdTRUE) {
-            return;
-        }
-        xTimerStart(timerHandler, portMAX_DELAY);
-    }
 }
 
 void LilyGoLoRaPager::pushColors(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t *color)
@@ -1301,6 +1225,14 @@ static void rotaryTask(void *p)
 }
 
 
-LilyGoLoRaPager instance;
+namespace
+{
+LilyGoLoRaPager &getInstanceRef()
+{
+    return *LilyGoLoRaPager::getInstance();
+}
+}
+
+LilyGoLoRaPager &instance = getInstanceRef();
 
 #endif //ARDUINO_T_LORA_PAGER
