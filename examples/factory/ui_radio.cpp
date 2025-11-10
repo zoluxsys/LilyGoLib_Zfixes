@@ -432,11 +432,26 @@ void ui_radio_enter(lv_obj_t *parent)
 {
     static const char flag = 'b';
 
+    menu = create_menu(parent, back_event_handler);
+    lv_obj_t *main_page = lv_menu_page_create(menu, NULL);
+
+    if (!(HW_RADIO_ONLINE & hw_get_device_online())) {
+        lv_obj_t *cont = lv_menu_cont_create(main_page);
+        lv_obj_remove_style_all(cont);
+        lv_obj_set_size(cont, lv_pct(100), 80);
+        lv_obj_t *label = lv_label_create(cont);
+        lv_label_set_text(label, "Radio module not detected!");
+        lv_obj_set_style_text_color(label, lv_color_black(), 0);
+        lv_obj_set_width(label, lv_pct(90));
+        lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+        lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_center(label);
+        lv_menu_set_page(menu, main_page);
+        return;
+    }
+
     hw_get_radio_params(radio_params_copy);
 
-    menu = create_menu(parent, back_event_handler);
-
-    lv_obj_t *main_page = lv_menu_page_create(menu, NULL);
     ui_create_option(main_page, "State:", NULL, create_state_textarea, NULL);
     ui_create_option(main_page, "Mode:", NULL, create_mode_dropdown, NULL);
 #ifdef HAS_USB_RF_SWITCH
