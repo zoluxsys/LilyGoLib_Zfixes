@@ -34,6 +34,7 @@
 #include "LilyGoEventManage.h"
 #include "LilyGoTypedef.h"
 #include "LilyGoPowerManage.h"
+#include "BrightnessController.h"
 
 #define newModule()   new Module(LORA_CS,LORA_IRQ,LORA_RST,LORA_BUSY)
 
@@ -52,8 +53,28 @@
 | [Real-Time Clock PCF85063A](https://www.nxp.com/products/PCF85063A)                              | 0x51          |
 */
 
-class LilyGoUltra: public LilyGo_Display, public LilyGoDispQSPI, public LilyGoEventManage, public LilyGoPowerManage
+static uint8_t BATTER_PARAMS[] = {
+    0x01, 0xf5, 0x40, 0x00, 0x1b, 0x1e, 0x28, 0x0f, 0x0c, 0x1e, 0x32, 0x02, 0x14, 0x05, 0x0a, 0x04,
+    0x74, 0xfc, 0xf4, 0x0d, 0x43, 0x10, 0x52, 0xfb, 0xa6, 0x01, 0xea, 0x04, 0x64, 0x06, 0x52, 0x06,
+    0x18, 0x0a, 0xe7, 0x0f, 0x9f, 0x0f, 0x51, 0x09, 0xf7, 0x0e, 0x89, 0x0e, 0x71, 0x04, 0x58, 0x04,
+    0x43, 0x09, 0x32, 0x0e, 0x1c, 0x0e, 0x14, 0x09, 0x04, 0x0d, 0xe9, 0x0d, 0xde, 0x03, 0xc8, 0x03,
+    0xb3, 0x08, 0x9d, 0x0d, 0x79, 0x0d, 0x3a, 0x07, 0xf5, 0x9e, 0x56, 0x47, 0x36, 0x20, 0x24, 0x17,
+    0xc5, 0x98, 0x7e, 0x66, 0x4e, 0x44, 0x38, 0x1a, 0x12, 0x0a, 0xf6, 0x00, 0x00, 0xf6, 0x00, 0xf6,
+    0x00, 0xfb, 0x00, 0x00, 0xfb, 0x00, 0x00, 0xfb, 0x00, 0x00, 0xf6, 0x00, 0x00, 0xf6, 0x00, 0xf6,
+    0x00, 0xfb, 0x00, 0x00, 0xfb, 0x00, 0x00, 0xfb, 0x00, 0x00, 0xf6, 0x00, 0x00, 0xf6, 0x00, 0xf6,
+};
+
+class LilyGoUltra: public LilyGo_Display,
+    public LilyGoDispQSPI,
+    public LilyGoEventManage,
+    public LilyGoPowerManage,
+    public BrightnessController<LilyGoUltra, 0, 255, 5>
 {
+private:
+    static LilyGoUltra *_instance;
+    LilyGoUltra();
+    ~LilyGoUltra();
+
 public:
     XPowersAXP2101 pmu;
     GPS gps;
@@ -82,8 +103,20 @@ public:
     ExtensionIOXL9555 io;
 #endif
 
-    LilyGoUltra();
-    ~LilyGoUltra();
+
+    /**
+     * @brief  Get the instance of the LilyGoUltra class.
+     * @note   This function returns a pointer to the singleton instance of the class.
+     * @retval Pointer to the LilyGoUltra instance.
+     */
+    static LilyGoUltra *getInstance()
+    {
+        if (_instance == nullptr) {
+            _instance = new LilyGoUltra();
+        }
+        return _instance;
+    }
+
 
     /**
      * @brief Set the boot image.
@@ -253,32 +286,6 @@ public:
      * @return uint8_t The current brightness level.
      */
     uint8_t getBrightness();
-
-    /**
-     * @brief Decrease the display brightness to the target level.
-     *
-     * This function gradually decreases the display brightness to the 'target_level'. The 'delay_ms' parameter
-     * specifies the delay between each decrement step, and the 'reserve' parameter might be used for some
-     * additional reservation settings.
-     *
-     * @param target_level The target brightness level to reach.
-     * @param delay_ms Delay between each brightness decrement step (default: 5ms).
-     * @param reserve Optional parameter for additional reservation settings (default: false).
-     */
-    void decrementBrightness(uint8_t target_level, uint32_t delay_ms = 5, bool reserve = false);
-
-    /**
-     * @brief Increase the display brightness to the target level.
-     *
-     * This function gradually increases the display brightness to the 'target_level'. The 'delay_ms' parameter
-     * specifies the delay between each increment step, and the 'reserve' parameter might be used for some
-     * additional reservation settings.
-     *
-     * @param target_level The target brightness level to reach.
-     * @param delay_ms Delay between each brightness increment step (default: 5ms).
-     * @param reserve Optional parameter for additional reservation settings (default: false).
-     */
-    void incrementalBrightness(uint8_t target_level, uint32_t delay_ms = 5, bool reserve = false);
 
     /**
      * @brief Set the display rotation.
@@ -604,10 +611,11 @@ private:
      * This function attempts to initialize the Power Management Unit of the device. The PMU is responsible
      * for managing the power consumption, battery charging, and other power - related functions.
      * It returns true if the initialization is successful and false otherwise.
-     *
+     * @param batteryCalibration Optional parameter to enable battery calibration (default: false).
+     * Upon startup, it will check if the fuel gauge has been calibrated; if not, it will perform calibration.
      * @return bool True if the PMU initialization is successful, false otherwise.
      */
-    bool initPMU();
+    bool initPMU(bool batteryCalibration = false);
 
 
     static EventGroupHandle_t _event;
@@ -622,7 +630,7 @@ private:
 extern RfalNfcClass NFCReader;
 #endif
 
-extern LilyGoUltra instance;
+extern LilyGoUltra &instance;
 
 #if    defined(ARDUINO_LILYGO_LORA_SX1262)
 extern SX1262 radio;

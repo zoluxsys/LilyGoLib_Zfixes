@@ -93,6 +93,11 @@ void ui_keyboard_enter(lv_obj_t *parent)
 #endif
     lv_obj_set_style_text_font(label, &lv_font_montserrat_14, 0);
 
+    lv_obj_set_style_text_color(label, lv_color_black(), 0);
+    lv_obj_set_width(label, lv_pct(90));
+    lv_obj_align(label, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
+
     lv_menu_set_page(menu, main_page);
 
 #ifdef USING_TOUCHPAD

@@ -18,6 +18,7 @@
 #include "driver/gpio.h"
 #include "LilyGoLib.h"
 #include "driver/rtc_io.h"
+#include <Preferences.h>
 
 extern void setupMSC(lock_callback_t lock_cb, lock_callback_t ulock_cb);
 extern void esp_enable_slow_crystal();
@@ -69,6 +70,7 @@ RfalNfcClass NFCReader(&nfc_hw);
 #endif
 
 EventGroupHandle_t LilyGoUltra::_event = NULL;
+LilyGoUltra *LilyGoUltra::_instance = nullptr;
 
 static bool _lock_callback(void)
 {
@@ -169,6 +171,17 @@ uint32_t LilyGoUltra::begin(uint32_t disable_hw_init)
 
     bool res = false;
 
+    Preferences prefs;
+    prefs.begin("lilygo", false);
+    bool batteryCalibrated = prefs.getBool("calibration");
+    prefs.end();
+
+    if (batteryCalibrated) {
+        log_d("Battery already calibrated");
+    } else {
+        log_d("Battery not calibrated");
+    }
+
     _lock = xSemaphoreCreateMutex();
 
     _event = xEventGroupCreate();
@@ -192,14 +205,13 @@ uint32_t LilyGoUltra::begin(uint32_t disable_hw_init)
         setupMSC(_lock_callback, _unlock_callback);
     }
 
-    res = initPMU();
+    res = initPMU(batteryCalibrated == false);
     if (!res) {
         log_e("Failed to find PMU.");
         assert(0);
     } else {
         log_d("Initializing PMU succeeded");
     }
-
 
     LilyGoDispQSPI::enableDMA(_enableDMA);
 
@@ -255,6 +267,11 @@ uint32_t LilyGoUltra::begin(uint32_t disable_hw_init)
 
 #endif
 
+    if (!(disable_hw_init & NO_HW_DRV)) {
+        initDrv();
+    }
+
+
 #ifndef DISP_RST
 #define DISP_RST -1
 #endif
@@ -292,10 +309,6 @@ uint32_t LilyGoUltra::begin(uint32_t disable_hw_init)
 
     if (!(disable_hw_init & NO_HW_NFC)) {
         initNFC();
-    }
-
-    if (!(disable_hw_init & NO_HW_DRV)) {
-        initDrv();
     }
 
     if (!(disable_hw_init & NO_HW_GPS)) {
@@ -412,12 +425,30 @@ void LilyGoUltra::vibrator()
 * | VBACKUP    | 3.3V                            /30mA  | Unused      |
 * *********************************************************************
 */
-bool LilyGoUltra::initPMU()
+bool LilyGoUltra::initPMU(bool batteryCalibration)
 {
     bool res = pmu.init();
     if (!res) {
         return false;
     }
+
+    if (batteryCalibration) {
+        if (pmu.writeGaugeData(BATTER_PARAMS, sizeof(BATTER_PARAMS))) {
+            log_d("Battery calibration data write success");
+            Preferences prefs;
+            prefs.begin("lilygo", false);
+            prefs.putBool("calibration", true);
+            prefs.end();
+        } else {
+            log_e("Battery calibration data write failed");
+        }
+    }
+
+    // if (pmu.compareGaugeData(BATTER_PARAMS, sizeof(BATTER_PARAMS))) {
+    //     log_d("Battery calibration data verified successfully");
+    // } else {
+    //     log_e("Battery calibration data verify failed");
+    // }
 
     devices_probe |= HW_PMU_ONLINE;
 
@@ -488,7 +519,7 @@ bool LilyGoUltra::initPMU()
     pmu.setChargeTargetVoltage(XPOWERS_AXP2101_CHG_VOL_4V2);
 
     // The charging current should not be greater than half of the battery capacity.
-    setChargeCurrent(512);
+    setChargeCurrent(DEVICE_CHARGE_CURRENT_RECOMMEND);
 
     return res;
 }
@@ -647,29 +678,6 @@ uint8_t LilyGoUltra::getBrightness()
 {
     return LilyGoDispQSPI::_brightness;
 }
-
-void LilyGoUltra::decrementBrightness(uint8_t target_level, uint32_t delay_ms, bool reserve)
-{
-    uint8_t brightness = getBrightness();
-    if (target_level > brightness)
-        return;
-    for (int i = brightness; i >= target_level; i--) {
-        setBrightness(i);
-        delay(delay_ms);
-    }
-}
-
-void LilyGoUltra::incrementalBrightness(uint8_t target_level, uint32_t delay_ms, bool reserve)
-{
-    uint8_t brightness = getBrightness();
-    if (target_level < brightness)
-        return;
-    for (int i = brightness; i < target_level; i++) {
-        setBrightness(i);
-        delay(delay_ms);
-    }
-}
-
 
 void LilyGoUltra::pushColors(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t *color)
 {
@@ -1277,13 +1285,21 @@ void LilyGoUltra::setRFSwitch(bool to_usb)
     io.pinMode(EXPANDS_LORA_RF_SW, OUTPUT);
     if (to_usb) {
         log_d("Set RF Switch to USB Iface");
-        io.digitalWrite(EXPANDS_LORA_RF_SW, HIGH); // to USB
+        io.digitalWrite(EXPANDS_LORA_RF_SW, LOW); // to USB
     } else {
         log_d("Set RF Switch to Built-in LoRa Antenna");
-        io.digitalWrite(EXPANDS_LORA_RF_SW, LOW); // to Built-in LoRa antenna
+        io.digitalWrite(EXPANDS_LORA_RF_SW, HIGH); // to Built-in LoRa antenna
     }
 }
 
-LilyGoUltra instance;
+namespace
+{
+LilyGoUltra &getInstanceRef()
+{
+    return *LilyGoUltra::getInstance();
+}
+}
+
+LilyGoUltra &instance = getInstanceRef();
 
 #endif //ARDUINO_T_WATCH_S3_ULTRA

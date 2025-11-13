@@ -976,7 +976,11 @@ uint32_t hw_get_device_online()
 #ifdef ARDUINO
     return instance.getDeviceProbe();
 #else
-    return HW_RADIO_ONLINE | HW_TOUCH_ONLINE | HW_DRV_ONLINE | HW_PMU_ONLINE;
+    uint32_t hw_online =   HW_TOUCH_ONLINE | HW_DRV_ONLINE | HW_PMU_ONLINE;
+#ifdef USING_INPUT_DEV_KEYBOARD
+    hw_online |= HW_KEYBOARD_ONLINE;
+#endif
+    return hw_online;
 #endif
 }
 
